@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Never commit exported data: the site and JSON deploy as an Actions artifact,
+# so a mistaken public flag never lands in git history.
+data/
+site/
+web/dist/
+web/node_modules/
+
+.env
