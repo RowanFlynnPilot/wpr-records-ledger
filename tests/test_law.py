@@ -157,6 +157,15 @@ def test_new_ask_answered_the_same_day_while_an_old_one_is_open():
     law.validate(filed, asked_again, LATER)
 
 
+def test_a_dispute_then_a_revised_quote_the_same_day_waits_on_wpr():
+    # WPR disputes on 10/5; the agency revises the quote that day; nothing since.
+    filed = date(2026, 10, 1)
+    events = [ev("fee_quoted", 10, 2), ev("fee_quoted", 10, 5), ev("fee_disputed", 10, 5)]
+    assert [e["event_type"] for e in law.in_order(events)] == ["fee_quoted", "fee_disputed", "fee_quoted"]
+    assert law.waiting_on_wpr(events) == {"fee_quoted"}
+    assert law.held_working_days(A, filed, events, date(2026, 10, 9)) == 1    # 10/1; paused from 10/2 on
+
+
 def test_bill_with_the_response_after_paying_a_deposit():
     # Deposit quoted 10/2; on 10/8 WPR pays it and the agency releases with a bill for the balance.
     filed = date(2026, 10, 1)

@@ -87,15 +87,23 @@ PAUSES = (
 )
 _PAUSE_STARTS = frozenset(start for start, _ in PAUSES)
 _PAUSE_OF_END = {end: start for start, ends in PAUSES for end in ends}
-# Events logged on the same day sort in the order they must have happened:
-# - The agency's events, a new ask among them; then WPR's answers; then the
-#   final event; then remedies; then a reversal.
-# - An ask still open from an earlier day, answered today while the agency asks
-#   again today, takes today's answer first when a later answer exists for the
-#   new ask; with no later answer, today's answer is to today's ask.
-# - A fee quote in the same letter as the final response is a bill for what
-#   came with it, unless that day carries more fee answers than an earlier open
-#   quote needs: it sorts after the response and pauses nothing.
+# Events logged on the same day sort in the order they must have happened. A
+# date has no time of day, so this is a convention, stated exactly and fuzzed
+# against a reference (tests/test_clock_fuzz.py):
+# - By default: the agency's events, a new ask among them; then WPR's answers;
+#   then the final event; then remedies; then a reversal.
+# - Asks and answers of one kind on one day alternate: the agency doesn't ask
+#   the same thing twice before WPR replies, and WPR answers only an open ask.
+# - Each day is read so that WPR never answers something that isn't open, that
+#   day or on any later day. Where both readings of a day work (the agency asks
+#   again on a day WPR answers an ask open since an earlier day), the agency's
+#   ask comes first, unless WPR's answer is a fee dispute: a dispute prompts the
+#   revised quote.
+# - On the day of the agency's final response, one fee answer goes before the
+#   response if a quote was open that morning (it must be answered first); every
+#   other fee quote and answer that day goes after it, quote first, alternating:
+#   a quote in the same letter as the final response is a bill for what came
+#   with it. Every reading of such a day gives the same held days.
 _BILLED_WITH_RESPONSE = 2.5
 _SAME_DAY_ORDER = {
     **{kind: 1 for kind in _PAUSE_OF_END},
@@ -135,33 +143,105 @@ def working_days(agency: str, start: date, end: date, excluded: frozenset[date] 
     return count
 
 
+def _alternate(first: list[dict], second: list[dict]) -> list[dict]:
+    run: list[dict] = []
+    for i in range(max(len(first), len(second))):
+        run += first[i:i + 1] + second[i:i + 1]
+    return run
+
+
+def _run_end(open_start: bool, asks: int, answers: int, answer_first: bool) -> bool | None:
+    """Whether one kind's pause is open after a day's alternating run, or None if
+    that reading would have WPR answer something that isn't open."""
+    if answer_first:
+        return answers == asks if open_start and answers in (asks, asks + 1) else None
+    if not asks:
+        return open_start if not answers else None
+    return asks > answers if asks in (answers, answers + 1) else None
+
+
+def _response_day_end(open_start: bool, quotes: int, answers: int) -> bool | None:
+    """The fee run on the day of the final response: one answer first if a quote
+    was open, then the rest after the response, quote first."""
+    rest = answers - (1 if open_start else 0)
+    if rest < 0 or quotes not in (rest, rest + 1):
+        return None
+    return quotes > rest
+
+
+def _readings(pause: str, days: list[date], by_day: dict[date, list[dict]]) -> list[bool]:
+    """For each day, whether that kind's run starts with WPR's answer: the first
+    reading, in order of preference, that leaves every later day readable."""
+    counts = []
+    for day in days:
+        todays = by_day[day]
+        counts.append((sum(e["event_type"] == pause for e in todays),
+                       sum(_PAUSE_OF_END.get(e["event_type"]) == pause for e in todays),
+                       pause == "fee_quoted" and any(e["event_type"] in AGENCY_TERMINAL for e in todays),
+                       pause == "fee_quoted" and any(e["event_type"] == "fee_disputed" for e in todays)))
+
+    def options(i: int, open_start: bool) -> list[tuple[bool, bool | None]]:
+        asks, answers, response_day, dispute = counts[i]
+        if response_day:
+            return [(False, _response_day_end(open_start, asks, answers))]
+        prefer = (True, False) if dispute else (False, True)
+        return [(first, _run_end(open_start, asks, answers, first)) for first in prefer]
+
+    memo: dict[tuple[int, bool], bool] = {}
+
+    def readable(i: int, open_start: bool) -> bool:
+        if i == len(days):
+            return True
+        if (i, open_start) not in memo:
+            memo[i, open_start] = any(end is not None and readable(i + 1, end) for _, end in options(i, open_start))
+        return memo[i, open_start]
+
+    readings, open_now = [], False
+    for i in range(len(days)):
+        ranked = options(i, open_now)
+        first, end = next(((f, e) for f, e in ranked if e is not None and readable(i + 1, e)),
+                          next(((f, e) for f, e in ranked if e is not None), (False, open_now)))
+        readings.append(first)
+        open_now = end if end is not None else open_now
+    return readings
+
+
 def in_order(events: list[dict]) -> list[dict]:
     """Events in the order they must have happened (see _SAME_DAY_ORDER).
     The clock rules and the published timelines both use this order."""
     by_day: dict[date, list[dict]] = {}
     for e in events:
         by_day.setdefault(e["event_on"], []).append(e)
-    last_answer: dict[str, date] = {}
-    for e in events:
-        pause = _PAUSE_OF_END.get(e["event_type"])
-        if pause:
-            last_answer[pause] = max(last_answer.get(pause, e["event_on"]), e["event_on"])
+    days = sorted(by_day)
+    readings = {pause: _readings(pause, days, by_day) for pause in _PAUSE_STARTS}
     ordered: list[dict] = []
     open_pauses: set[str] = set()
-    for day in sorted(by_day):
-        kinds = [e["event_type"] for e in by_day[day]]
-        fee_answers = sum(_PAUSE_OF_END.get(kind) == "fee_quoted" for kind in kinds)
-        billed = (any(kind in AGENCY_TERMINAL for kind in kinds)
-                  and fee_answers <= (1 if "fee_quoted" in open_pauses else 0))
+    for i, day in enumerate(days):
+        todays = by_day[day]
+        position: dict[int, float] = {}
+        response_day = any(e["event_type"] in AGENCY_TERMINAL for e in todays)
+        if response_day:
+            quotes = [e for e in todays if e["event_type"] == "fee_quoted"]
+            fee_answers = [e for e in todays if _PAUSE_OF_END.get(e["event_type"]) == "fee_quoted"]
+            before = fee_answers[:1] if "fee_quoted" in open_pauses else []
+            for e in before:
+                position[id(e)] = 1
+            for j, e in enumerate(_alternate(quotes, fee_answers[len(before):])):
+                position[id(e)] = _BILLED_WITH_RESPONSE + j / 100
+        for pause in _PAUSE_STARTS:
+            if response_day and pause == "fee_quoted":
+                continue
+            asks = [e for e in todays if e["event_type"] == pause]
+            answers = [e for e in todays if _PAUSE_OF_END.get(e["event_type"]) == pause]
+            if not (asks and answers):
+                continue
+            run = _alternate(answers, asks) if readings[pause][i] else _alternate(asks, answers)
+            for j, e in enumerate(run):
+                position[id(e)] = 1 + j / 100
 
         def rank(e: dict) -> float:
-            pause = _PAUSE_OF_END.get(e["event_type"])
-            if pause in open_pauses and last_answer[pause] > day:
-                return -1
-            if billed and e["event_type"] == "fee_quoted":
-                return _BILLED_WITH_RESPONSE
-            return _SAME_DAY_ORDER.get(e["event_type"], 0)
-        for e in sorted(by_day[day], key=rank):
+            return position.get(id(e), _SAME_DAY_ORDER.get(e["event_type"], 0))
+        for e in sorted(todays, key=rank):
             _track_pause(open_pauses, e["event_type"])
             ordered.append(e)
     return ordered
