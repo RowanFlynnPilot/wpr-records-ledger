@@ -95,20 +95,27 @@ jobs:
         run: |
           tag=$(python snapshot.py)
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          if gh release view "$tag" > /dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
+          if [ -z "$tag" ]; then
+            echo "Not in a new quarter's first 14 days; nothing to freeze."
+            echo "freeze=false" >> "$GITHUB_OUTPUT"
+          elif out=$(gh release view "$tag" 2>&1); then
+            echo "$tag is already frozen."
+            echo "freeze=false" >> "$GITHUB_OUTPUT"
+          elif grep -q "release not found" <<< "$out"; then
+            echo "freeze=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "$out" >&2   # an outage or rate limit, not a missing release: fail rather than guess
+            exit 1
           fi
 
-      - if: steps.tag.outputs.exists == 'false'
+      - if: steps.tag.outputs.freeze == 'true'
         uses: actions/download-artifact@v4
         with:
           name: data
           path: data
 
       - name: Freeze the quarter's data as a release
-        if: steps.tag.outputs.exists == 'false'
+        if: steps.tag.outputs.freeze == 'true'
         run: |
           as_of=$(python -c "import json; print(json.load(open('data/meta.json'))['as_of'])")
           gh release create "${{ steps.tag.outputs.tag }}" data/*.csv data/*.json             --title "Data, ${{ steps.tag.outputs.tag }}"             --notes "The Records Ledger's published data as exported on $as_of, the first successful nightly export after the quarter ended. Frozen so a figure cited in a story can be checked later. CC BY 4.0: credit Wausau Pilot & Review. It is WPR's own experience as one requester, not a measure of how an agency treats others; see the site's methodology."
