@@ -45,6 +45,9 @@ _PAUSE_OF_END = {end: start for start, ends in PAUSES for end in ends}
 # Events logged on the same day sort in the order they must have happened: an
 # answer to an ask already open, then the agency's events (a new ask among
 # them), then answers to asks made that day, then the final event, then remedies.
+# A fee quote in the same letter as the final response, unanswered that day, is
+# a bill for what came with it: it sorts after the response and pauses nothing.
+_BILLED_WITH_RESPONSE = 2.5
 _SAME_DAY_ORDER = {
     **{kind: 1 for kind in _PAUSE_OF_END},
     **{kind: 2 for kind in TERMINAL},
@@ -91,9 +94,14 @@ def _sorted(events: list[dict]) -> list[dict]:
     ordered: list[dict] = []
     open_pauses: set[str] = set()
     for day in sorted(by_day):
-        def rank(e: dict) -> int:
+        kinds = {e["event_type"] for e in by_day[day]}
+        billed = bool(kinds & AGENCY_TERMINAL) and not kinds & {"fee_paid", "fee_disputed"}
+
+        def rank(e: dict) -> float:
             if _PAUSE_OF_END.get(e["event_type"]) in open_pauses:
                 return -1
+            if billed and e["event_type"] == "fee_quoted":
+                return _BILLED_WITH_RESPONSE
             return _SAME_DAY_ORDER.get(e["event_type"], 0)
         for e in sorted(by_day[day], key=rank):
             _track_pause(open_pauses, e["event_type"])

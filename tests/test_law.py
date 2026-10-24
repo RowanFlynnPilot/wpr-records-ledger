@@ -169,6 +169,20 @@ def test_denial_reversed():
             law.validate(filed, bad, LATER)
 
 
+def test_fee_billed_with_the_final_response():
+    # "Records attached, some withheld, $12 due": one letter, so the quote pauses nothing.
+    filed = date(2026, 10, 1)
+    letter = [ev("fee_quoted", 10, 7), ev("partially_denied", 10, 7), ev("fee_paid", 10, 14)]
+    law.validate(filed, letter, LATER)
+    assert law.held_working_days(A, filed, letter, LATER) == 4                # 10/1-10/6
+    assert law.status(letter) == "partially_denied"
+    unpaid = [ev("fee_quoted", 10, 7), ev("fulfilled", 10, 7)]               # never paid: still valid
+    law.validate(filed, unpaid, LATER)
+    # A quote on an earlier day still has to be answered before the response.
+    with pytest.raises(law.InvalidRequest, match="unanswered fee_quoted"):
+        law.validate(filed, [ev("fee_quoted", 10, 6), ev("fulfilled", 10, 7)], LATER)
+
+
 def test_status_and_final_event():
     assert law.status([]) == "open"
     assert law.status([ev("records_released", 10, 5)]) == "open"

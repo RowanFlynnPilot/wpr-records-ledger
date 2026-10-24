@@ -89,6 +89,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
   - a s. 19.356 notice sent within 10 days: not judged, since release is barred by statute
   - withdrawn or still open inside 10 days: not judged
 - **Same-day order.** Events on one day sort in the order they must have happened, whatever order staff logged them: an answer to an ask already open, then the agency's events (a new ask among them), then answers to asks made that day, then the final event, then remedies.
+- **Fee billed with the response.** A `fee_quoted` dated the same day as the agency's final response, with no `fee_paid` or `fee_disputed` that day, is a bill for what came with the response: it sorts after it and pauses nothing. A quote on an earlier day must still be answered first.
 - **Pairing.** Each answer ends the pause of its kind that was open when it arrived. A repeated ask while one is open extends that pause. Both kinds can be open at once, and each must be answered.
 - **Validation.** `validate(filed_on, events, as_of)` raises when:
   - an event is dated before filing, or the request or any event is dated after the export day
