@@ -2,7 +2,7 @@ import { agencyCard } from "./cards.js";
 import { LEAD } from "./config.js";
 import {
   benchmarkLabel, el, EVENT_LABELS, fmtCents, fmtDate, fmtDateTime, fmtInt, loadJSON, loadText, showError,
-  STATUS_LABELS, warnIfStale,
+  STATUS_LABELS, doneLoading, warnIfStale,
 } from "./common.js";
 
 const main = document.querySelector("main");
@@ -143,6 +143,7 @@ async function start() {
   document.getElementById("cards").replaceChildren(...scorecard.map((a) => agencyCard(a, meta.law)));
   renderAudit(rounds);
   renderRequests(requests, events);
+  doneLoading();
 }
 
 start().catch((err) => showError(main, err));

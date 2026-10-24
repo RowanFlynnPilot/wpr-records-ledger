@@ -196,5 +196,8 @@ The Wisconsin Transparency Project (Tom Kamenick) represents news outlets in rec
 - **Design system:** Same as the other Ledgers. Teal `#3A867C`, cream `#F6F2E9`; Fraunces for display, Public Sans for body, JetBrains Mono for data.
 - **Code:** Python 3.12 (CI pins it; the local `.venv` is 3.14, so use nothing newer than 3.12). Scripts use `argparse` and support `--dry-run`. Use `psycopg`.
 - **Site:** no media-query range syntax (Safari before 16.4 ignores it). Every data value is set as text, never as HTML.
+  - Fonts are self-hosted (`web/fonts.css`, `web/fonts/`, Fontsource variable builds, Latin subset, OFL licenses alongside): no request leaves the site, and headless renders never fall back.
+  - Everything below the masthead stays hidden until the data has rendered (`main[data-loading]`, cleared by `doneLoading()`), so nothing visible shifts as the page fills in.
+  - Checked Oct 24, 2026 on synthetic data: axe-core 4.14 (WCAG 2.1 A/AA plus best practice) reports no violations on any page at 1280 and 390px. Lighthouse 12.6 (simulated mobile, local server): performance 95/96, accessibility, best practices and SEO 100, CLS 0.024/0. The local server neither compresses nor caches; Pages does both.
 - **Locally:** Windows, PowerShell 5.1, `python -m pip`, commands chained with semicolons.
 - **Principles:** One correct path, no fallbacks, fail fast. Single-responsibility functions.

@@ -11,7 +11,8 @@ function rate(label, value, n, nLabel, minN, bench) {
     el("p", { class: "metric-bench" }, `${nLabel}: ${fmtInt(n)}. ${bench}`));
 }
 
-export function agencyCard(a, law) {
+// `level`: the agency name's heading level on the host page (h3 under the home page's h2).
+export function agencyCard(a, law, level = 3) {
   const minN = law.MIN_N_FOR_RATES;
   const wd = law.SIMPLE_REQUEST_BENCHMARK_WD;
   const mix = [`${fmtInt(a.simple_n)} simple`, `${fmtInt(a.complex_n)} complex`];
@@ -22,7 +23,7 @@ export function agencyCard(a, law) {
   const share = a.benchmark_met_share === null ? null : `${Math.round(a.benchmark_met_share * 100)}%`;
   return el("article", { class: "card" },
     el("div", { class: "card-head" },
-      el("h3", {}, a.agency),
+      el(`h${level}`, { class: "card-title" }, a.agency),
       el("span", { class: "card-n" }, `${fmtInt(a.requests)} request${a.requests === 1 ? "" : "s"}`)),
     el("p", { class: "card-mix" }, mix.join(" · ")),
     rate("Median working days held, simple requests", a.median_held_wd_simple, a.median_n,

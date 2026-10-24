@@ -1,4 +1,4 @@
-import { el, fmtDate, fmtDateTime, loadJSON, loadText, showError, warnIfStale } from "./common.js";
+import { doneLoading, el, fmtDate, fmtDateTime, loadJSON, loadText, showError, warnIfStale } from "./common.js";
 
 const DESCRIPTIONS = {
   SIMPLE_REQUEST_BENCHMARK_WD: "Working days DOJ calls generally reasonable for a simple request",
@@ -17,7 +17,7 @@ function renderHolidays(container, holidays) {
   container.replaceChildren(...agencies.map((agency) => el("details", { class: "holiday-agency" },
     el("summary", {}, agency),
     Object.entries(holidays[agency]).flatMap(([year, days]) => [
-      el("h4", {}, year),
+      el("h3", { class: "holiday-year" }, year),
       el("ul", { class: "holidays" },
         days.map((d) => el("li", {}, fmtDate(d, { weekday: "short", month: "short", day: "numeric", year: "numeric" })))),
     ]))));
@@ -33,6 +33,7 @@ async function start() {
     el("tr", {}, el("td", {}, name), el("td", {}, String(value)), el("td", {}, DESCRIPTIONS[name] ?? ""))));
   renderHolidays(document.getElementById("holidays"), HOLIDAYS);
   document.getElementById("source").textContent = source;
+  doneLoading();
 }
 
 start().catch((err) => showError(document.querySelector("main"), err));

@@ -93,6 +93,13 @@ export function warnIfStale(meta, anchor = document.querySelector(".masthead")) 
   return banner;
 }
 
+// Everything below the masthead stays hidden until the data has rendered, then
+// appears at once: nothing the reader sees moves as the page fills in.
+export function doneLoading() {
+  document.querySelector("main").removeAttribute("data-loading");
+}
+
 export function showError(container, err) {
+  doneLoading();
   container.replaceChildren(el("p", { class: "load-error" }, `Could not load the ledger's data (${err.message}).`));
 }

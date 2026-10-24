@@ -1,5 +1,5 @@
 import { agencyCard } from "./cards.js";
-import { el, fmtDateTime, loadJSON, showError, warnIfStale } from "./common.js";
+import { doneLoading, el, fmtDateTime, loadJSON, showError, warnIfStale } from "./common.js";
 
 async function start() {
   const [scorecard, meta] = await Promise.all([loadJSON("data/scorecard.json"), loadJSON("data/meta.json")]);
@@ -10,11 +10,13 @@ async function start() {
     slot.replaceChildren(el("p", { class: "empty" },
       name ? "The ledger has no published figures for that agency yet." : "Name an agency: embed.html?agency=…"));
   } else {
-    slot.replaceChildren(agencyCard(agency, meta.law));
+    slot.replaceChildren(agencyCard(agency, meta.law, 2));
+    document.getElementById("embed-title").textContent = `${agency.agency}: The Records Ledger, Wausau Pilot & Review`;
   }
   document.getElementById("embed-updated").textContent = `Updated ${fmtDateTime(meta.generated_at)}`;
   warnIfStale(meta, document.querySelector(".embed-head"));
   // Fonts swapping in, or the card wrapping, change the height after the first paint.
+  doneLoading();
   new ResizeObserver(postHeight).observe(document.documentElement);
 }
 

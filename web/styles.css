@@ -101,6 +101,7 @@ section { margin-bottom: 3.25rem; }
 .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
 .card { background: var(--white); border: 1px solid var(--line); padding: 1.25rem 1.25rem 1rem; }
 .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 0.25rem; }
+.card-title { font-family: var(--display); font-weight: 600; font-size: 1.2rem; margin: 0; line-height: 1.2; }
 .card-n { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap; }
 .card-mix { font-size: 0.85rem; color: var(--ink-soft); margin: 0 0 1rem; }
 .metric { border-top: 1px solid var(--line); padding: 0.75rem 0; }
@@ -154,7 +155,7 @@ thead th.num { white-space: normal; }
 .holidays { columns: 3 12rem; font-family: var(--mono); font-size: 0.82rem; padding-left: 1.1rem; margin: 0 0 0.75rem; }
 .holiday-agency { background: var(--white); border: 1px solid var(--line); padding: 0.7rem 1rem; margin-bottom: 0.6rem; }
 .holiday-agency summary { cursor: pointer; font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
-.holiday-agency h4 { font-family: var(--mono); font-size: 0.8rem; margin: 0.75rem 0 0.3rem; }
+.holiday-agency .holiday-year { font-family: var(--mono); font-size: 0.8rem; margin: 0.75rem 0 0.3rem; }
 .warning { color: var(--rust-text); font-weight: 500; }
 pre.source {
   background: var(--white); border: 1px solid var(--line); padding: 1rem;
@@ -183,6 +184,8 @@ body.embed { background: var(--white); }
 .embed .card { border: 0; padding: 0; }
 .embed .stale-banner { margin: 0 0 0.75rem; }
 .embed-foot { font-size: 0.75rem; color: var(--ink-soft); margin: 0.75rem 0 0; line-height: 1.5; }
+
+main[data-loading] > :not(.masthead):not(.embed-head) { visibility: hidden; }
 
 .load-error { padding: 3rem 1rem; font-family: var(--mono); color: var(--rust-text); }
 
