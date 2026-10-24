@@ -25,6 +25,8 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
 - `tests/test_law.py`, `tests/test_export.py` (no database), `tests/test_export_e2e.py` (local Postgres)
 - `tests/synthetic.py`: the synthetic agencies, requests and events, with every expected value worked out by hand. Never-published columns carry `SENTINEL`, and the e2e test searches every output file for it.
 - `web/`: static HTML/CSS/JS, no build step
+- `backfill.py` and `tests/test_backfill.py`: loads past requests from two CSVs (templates and a column guide in `backfill_templates/`). Local only, as the owner (`LEDGER_WRITE_DB_URL`).
+- `.github/workflows/test.yml`: the whole suite on Python 3.12 with a Postgres 16 service on every push; first passed Oct 24, 2026 (56 tests, none skipped).
 
 **On branch `workflow`, not merged:** `.github/workflows/export.yml`. It runs the tests (the e2e test against a Postgres 16 service container), then the export, then deploys to Pages.
 
@@ -141,7 +143,10 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
 1. **Stand up the database.**
    - Create a Supabase project, apply `schema.sql`, run `tests.sql`, and give `ledger_export` a login password.
    - Set `law.HOLIDAYS` for 2024–26, one list per agency.
-   - Backfill the counted requests.
+   - Backfill the counted requests with `backfill.py`:
+     - Fill copies of `backfill_templates/*.csv` in `backfill/` (gitignored; the files hold `records_sought`), add any new agency in the Table Editor first, then run `--dry-run`, then the real load.
+     - Every request must pass `law.validate`, and the rows go in inside one transaction, so the schema's constraints and triggers check them too. Any error anywhere inserts nothing; a request already in the database (same agency, `filed_on` and `records_sought`) is refused, so a rerun can't double-load.
+     - Amounts are in dollars and `remedy_notice` is `yes`/`no`; the file's `key` links replies to requests and isn't stored.
 2. **Quarterly audit.** File the Q3 2026 round from the Closed Door Ledger's `audit.py` list, one request per custodian with identical wording.
    - Log each with `audit_round` set. The site's audit section shows a round's **public** requests side by side, as counts (a round is too small for shares), so set the round's requests to `public` when it is published.
 3. **Export** (`export.py` and `tests/test_export.py`). Test fixtures must cover:

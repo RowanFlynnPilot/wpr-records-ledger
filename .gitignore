@@ -16,3 +16,6 @@ web/node_modules/
 # Local previews
 screenshots/
 .claude/
+
+# Backfill files hold records_sought and notes: never commit them
+backfill/

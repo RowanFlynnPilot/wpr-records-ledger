@@ -28,6 +28,11 @@ docker run -d --name wpr-records-ledger-pg -e POSTGRES_PASSWORD=postgres -p 127.
 $env:LEDGER_TEST_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54330/postgres"; python -m pytest tests
 ```
 
+Backfill past requests from the CSV templates in `backfill_templates/` (see its README; filled files stay in the gitignored `backfill/`):
+```
+$env:LEDGER_WRITE_DB_URL = "<owner connection string>"; python backfill.py backfill/requests.csv backfill/events.csv --dry-run
+```
+
 Export (nightly in Actions; locally with `--dry-run` to check without writing):
 ```
 $env:SUPABASE_DB_URL = "<session pooler URL for ledger_export>"; python export.py --out site --dry-run
