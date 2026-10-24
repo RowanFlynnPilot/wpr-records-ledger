@@ -138,6 +138,10 @@ REQUESTS = [
     req("R18", CITY, d(11, 9), "email", "public", "complex",
         [ev("denied", 11, 13, denial_reason=DENIAL_REASON, remedy_notice=True)],
         "Use-of-force reports, 2025"),
+    # Public oral request, partly denied with no reason or notice: a denial, but not one the written-denial
+    # rules apply to. 11/9-11/10 = 2. Met.
+    req("R20", CITY, d(11, 9), "oral", "public", "simple",
+        [ev("partially_denied", 11, 11, remedy_notice=False)], "Ambulance billing complaints"),
     # Quote, payment and release all on 11/11, logged in the wrong order. 11/9-11/10 = 2. Met.
     req("R19", CITY, d(11, 9), "email", "stats_only", "simple",
         [ev("fulfilled", 11, 11), ev("fee_paid", 11, 11, amount_cents=1000),
@@ -159,12 +163,12 @@ REQUESTS = [
 ]
 
 EXPECTED_SCORECARD = [
-    {"agency": CITY, "requests": 17, "open": 2, "simple_n": 14, "complex_n": 2, "unclassified_n": 1,
-     # R1 5, R2 21, R3 3, R4 3, R5 5, R6 2, R7 9, R10 27, R17 2, R19 2
-     "median_held_wd_simple": 4.0, "median_n": 10,
-     # met: R1 R3 R4 R5 R6 R7 R17 R19; missed: R2 R10 R11 R13
-     "benchmark_met_share": 0.667, "benchmark_n": 12,
-     "denials": 3, "denials_without_reasons": 1, "denials_missing_remedy_notice": 1, "denials_reversed": 1,
+    {"agency": CITY, "requests": 18, "open": 2, "simple_n": 15, "complex_n": 2, "unclassified_n": 1,
+     # R1 5, R2 21, R3 3, R4 3, R5 5, R6 2, R7 9, R10 27, R17 2, R19 2, R20 2: 2,2,2,2,3,[3],5,5,9,21,27
+     "median_held_wd_simple": 3, "median_n": 11,
+     # met: R1 R3 R4 R5 R6 R7 R17 R19 R20; missed: R2 R10 R11 R13. 9/13
+     "benchmark_met_share": 0.692, "benchmark_n": 13,
+     "denials": 4, "denials_without_reasons": 1, "denials_missing_remedy_notice": 1, "denials_reversed": 1,
      "no_records": 1,
      "location_fee_under_50": 1, "subject_notice_n": 2, "appeals": 1},
     {"agency": DISTRICT, "requests": 4, "open": 1, "simple_n": 3, "complex_n": 1, "unclassified_n": 0,
@@ -177,23 +181,25 @@ EXPECTED_SCORECARD = [
 
 
 def _listed(agency, filed_on, subject, status, held, met, quoted=None, paid=None, reason=None, notice=None,
-            audit=None):
+            audit=None, channel="email"):
     return {"agency": agency, "filed_on": filed_on, "public_subject": subject, "audit_round": audit,
-            "status": status,
+            "channel": channel, "status": status,
             "held_wd": held, "benchmark_result": met, "fees_quoted_cents": quoted,
             "fees_paid_cents": paid, "denial_reason": reason, "remedy_notice": notice}
 
 
 EXPECTED_REQUESTS = [
+    _listed(CITY, "2026-11-09", "Ambulance billing complaints", "partially_denied", 2, True, notice=False,
+            channel="oral"),
     _listed(CITY, "2026-11-09", "Use-of-force reports, 2025", "denied", 4, None,
             reason=DENIAL_REASON, notice=True),
     _listed(CITY, "2026-11-02", "Contract with body-camera vendor", "open", 80, False),
     _listed(CITY, "2026-11-02", "Council members' emails about the budget", "denial_reversed", 5, True,
-            notice=False),
+            notice=False, channel="mail"),
     _listed(CITY, "2026-10-26", "Lead service line inventory", "no_records", 4, None),
     _listed(CITY, "2026-10-19", "Building inspection reports, 500 block of Main St.", "fulfilled", 3, True,
             quoted=3250, paid=3250),
-    _listed(CITY, "2026-10-19", "Snowplow GPS logs, January 2026", "fulfilled", 3, True),
+    _listed(CITY, "2026-10-19", "Snowplow GPS logs, January 2026", "fulfilled", 3, True, channel="portal"),
     _listed(CITY, "2026-10-05", "Parking ticket totals by month", "withdrawn", 2, None),
     _listed(DISTRICT, "2026-10-05", "Bus contract bids", "fulfilled", 4, True, audit="2026-Q4"),
     _listed(CITY, "2026-10-01", "Police overtime records, 2025", "fulfilled", 5, True, audit="2026-Q4"),

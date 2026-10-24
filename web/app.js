@@ -95,7 +95,9 @@ function denialNote(r) {
   if (!["denied", "partially_denied", "denial_reversed"].includes(r.status)) return null;
   const reason = r.denial_reason === null ? "No reason stated." : `Stated reason: “${r.denial_reason}”`;
   const notice = r.remedy_notice ? "Gave notice of appeal rights." : "No notice of appeal rights.";
-  return el("div", { class: "denial" }, `${reason} ${notice}`);
+  // s. 19.35(4)(b): an oral request is owed written reasons only on demand, and no notice.
+  const oral = r.channel === "oral" ? " An oral request: neither was required." : "";
+  return el("div", { class: "denial" }, `${reason} ${notice}${oral}`);
 }
 
 const latestRound = (rounds) => Object.keys(rounds).sort().reverse()[0];

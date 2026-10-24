@@ -40,7 +40,7 @@ SCORECARD_FIELDS = (
     "location_fee_under_50", "subject_notice_n", "appeals",
 )
 REQUEST_FIELDS = (
-    "agency", "filed_on", "public_subject", "audit_round", "status", "held_wd", "benchmark_result",
+    "agency", "filed_on", "public_subject", "audit_round", "channel", "status", "held_wd", "benchmark_result",
     "fees_quoted_cents", "fees_paid_cents", "denial_reason", "remedy_notice",
 )
 META_FIELDS = ("generated_at", "as_of", "earliest_filed_on", "law")
@@ -182,6 +182,7 @@ def request_row(d: dict) -> dict:
         "filed_on": d["filed_on"].isoformat(),
         "public_subject": d["public_subject"],
         "audit_round": d["audit_round"],
+        "channel": d["channel"],
         "status": d["status"],
         "held_wd": d["held_wd"],
         "benchmark_result": d["benchmark_result"],
