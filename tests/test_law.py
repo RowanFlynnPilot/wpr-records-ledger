@@ -208,6 +208,14 @@ def test_fee_billed_with_the_final_response():
         law.validate(filed, [ev("fee_quoted", 10, 6), ev("fulfilled", 10, 7)], LATER)
 
 
+def test_waiting_on_wpr():
+    assert law.waiting_on_wpr([ev("fee_quoted", 10, 2)]) == {"fee_quoted"}
+    assert law.waiting_on_wpr([ev("fee_quoted", 10, 2), ev("clarification_requested", 10, 3),
+                               ev("fee_paid", 10, 4)]) == {"clarification_requested"}
+    assert law.waiting_on_wpr([ev("fee_quoted", 10, 2), ev("fee_disputed", 10, 3)]) == set()
+    assert law.waiting_on_wpr([ev("fee_quoted", 10, 2), ev("withdrawn", 10, 9)]) == set()   # closed
+
+
 def test_status_and_final_event():
     assert law.status([]) == "open"
     assert law.status([ev("records_released", 10, 5)]) == "open"

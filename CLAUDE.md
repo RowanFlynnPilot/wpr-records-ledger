@@ -26,6 +26,7 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
 - `tests/synthetic.py`: the synthetic agencies, requests and events, with every expected value worked out by hand. Never-published columns carry `SENTINEL`, and the e2e test searches every output file for it.
 - `web/`: static HTML/CSS/JS, no build step
 - `backfill.py` and `tests/test_backfill.py`: loads past requests from two CSVs (templates and a column guide in `backfill_templates/`). Local only, as the owner (`LEDGER_WRITE_DB_URL`).
+- `staff_report.py` and `tests/test_staff_report.py`: the staff's private to-do list (see Logging). Refuses to run in Actions.
 - `.github/workflows/test.yml`: the whole suite on Python 3.12 with a Postgres 16 service on every push; first passed Oct 24, 2026 (56 tests, none skipped).
 
 **On branch `workflow`, not merged:** `.github/workflows/export.yml`. It runs the tests (the e2e test against a Postgres 16 service container), then the export, then deploys to Pages.
@@ -104,6 +105,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
   - Its messages name event types, never dates, because the export prints them to a public log.
 - **Entry checks.** Triggers in `schema.sql` reject three of those mistakes as staff type them: an event dated before filing (or `filed_on` moved past logged events), a second final event, and anything but a remedy after `withdrawn`. They mirror `law.validate`, which stays the authority; `test_entry_checks_agree_with_law_validate` runs each case through both, and every trigger rule is mutation-checked in `tests.sql`.
 - **s. 19.356 notice.** Only a notice dated on or before the final event bears on the benchmark; one sent before a later batch doesn't.
+- **Waiting on WPR.** `waiting_on_wpr()`: the agency's unanswered asks on an open request (used by the staff report).
 - **Final event and status.** `final_event()` is the first terminal event; `status()` is its type, or `open`, or `denial_reversed` once a reversal follows a denial.
 - **Reversal.** `denial_reversed` must follow a denial, at most once, and sorts after remedies on the same day. It doesn't move the clock: the denial was the final response, and it still counts as a denial.
 - **Median membership.** `counts_in_median()`: simple requests the agency answered (not withdrawn, not open) that `benchmark_result` judges. An early s. 19.356 notice keeps a request out of both the median and the share.
@@ -176,6 +178,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
   - A request has one final response. Records that arrive after it are `records_released`.
   - If, after a denial, the agency releases everything it withheld (on its own, after an appeal, or by court order), log `denial_reversed` on the day it arrived.
 - Keep letters and records in Drive and paste the link into `document_url`. It never leaves the database.
+- **Weekly:** run `python staff_report.py` locally with the `ledger_export` URL. It lists, with ids, agencies and filers: logs that would stop the export, requests that can't be measured for want of a holiday list, asks waiting on WPR, open simple requests past 10 working days, open requests quiet for 30 days, unclassified requests, and unlisted requests entering the public figures within 14 days. It names private and embargoed requests, so it refuses to run in Actions; never paste its output anywhere public. It writes nothing, so it has no `--dry-run`.
 
 ## Escalation
 The Wisconsin Transparency Project (Tom Kamenick) represents news outlets in records suits; it won a settlement with fees for The Badger Project against WisDOT in Aug 2025 ([Badger Project](https://thebadgerproject.org/2025/08/14/wisdot-releases-records-pays-legal-fees-after-lawsuit-from-the-badger-project/)). The Wisconsin Freedom of Information Council is the statewide advocacy group. Log every appeal and suit as an event.

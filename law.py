@@ -162,6 +162,17 @@ def validate(filed_on: date, events: list[dict], as_of: date) -> None:
         closed_by = closed_by or (kind if kind in TERMINAL else None)
 
 
+def waiting_on_wpr(events: list[dict]) -> set[str]:
+    """The agency's asks WPR hasn't answered (clarification_requested, fee_quoted)
+    on an open request. Once the request is closed the clock no longer waits."""
+    if clock_stop(events) is not None:
+        return set()
+    open_pauses: set[str] = set()
+    for e in in_order(events):
+        _track_pause(open_pauses, e["event_type"])
+    return open_pauses
+
+
 def final_event(events: list[dict]) -> dict | None:
     """The first terminal event: the agency's final response, or WPR withdrawing."""
     return next((e for e in in_order(events) if e["event_type"] in TERMINAL), None)
