@@ -86,8 +86,9 @@ def working_days(agency: str, start: date, end: date, excluded: frozenset[date] 
     return count
 
 
-def _sorted(events: list[dict]) -> list[dict]:
-    """Events in the order they must have happened (see _SAME_DAY_ORDER)."""
+def in_order(events: list[dict]) -> list[dict]:
+    """Events in the order they must have happened (see _SAME_DAY_ORDER).
+    The clock rules and the published timelines both use this order."""
     by_day: dict[date, list[dict]] = {}
     for e in events:
         by_day.setdefault(e["event_on"], []).append(e)
@@ -127,7 +128,7 @@ def validate(filed_on: date, events: list[dict], as_of: date) -> None:
     withdrawn = reversed_ = False
     closed_by: str | None = None
     open_pauses: set[str] = set()
-    for e in _sorted(events):
+    for e in in_order(events):
         kind = e["event_type"]
         if e["event_on"] < filed_on:
             raise InvalidRequest(f"{kind} is dated before filing")
@@ -151,7 +152,7 @@ def validate(filed_on: date, events: list[dict], as_of: date) -> None:
 
 def final_event(events: list[dict]) -> dict | None:
     """The first terminal event: the agency's final response, or WPR withdrawing."""
-    return next((e for e in _sorted(events) if e["event_type"] in TERMINAL), None)
+    return next((e for e in in_order(events) if e["event_type"] in TERMINAL), None)
 
 
 def clock_stop(events: list[dict]) -> date | None:
@@ -184,7 +185,7 @@ def agency_working_days(agency: str, filed_on: date, events: list[dict], until: 
             paused.add(day)
             day += timedelta(days=1)
 
-    for e in _sorted(events):
+    for e in in_order(events):
         kind = e["event_type"]
         if kind in _PAUSE_STARTS:
             opened.setdefault(kind, e["event_on"])
@@ -216,7 +217,7 @@ def benchmark_result(agency: str, complexity: str | None, filed_on: date, events
     benchmark = SIMPLE_REQUEST_BENCHMARK_WD
     final = final_event(events)
     # A notice sent after the final response (before a later batch) doesn't bear on it.
-    notice = next((e["event_on"] for e in _sorted(events) if e["event_type"] == "subject_notice_sent"
+    notice = next((e["event_on"] for e in in_order(events) if e["event_type"] == "subject_notice_sent"
                    and (final is None or e["event_on"] <= final["event_on"])), None)
     if notice is not None:
         return False if agency_working_days(agency, filed_on, events, notice) > benchmark else None

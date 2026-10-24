@@ -71,6 +71,8 @@ def test_export_writes_every_file_as_expected(db, tmp_path, capsys):
     assert read_json(data / "requests.json") == synthetic.EXPECTED_REQUESTS
     assert read_csv(data / "requests.csv") == [as_csv_row(r) for r in synthetic.EXPECTED_REQUESTS]
     assert list(read_csv(data / "requests.csv")[0]) == list(export.REQUEST_FIELDS)
+    assert read_json(data / "request_events.json") == synthetic.EXPECTED_EVENTS
+    assert read_csv(data / "request_events.csv") == [as_csv_row(r) for r in synthetic.EXPECTED_EVENTS]
 
     meta = read_json(data / "meta.json")
     assert list(meta) == list(export.META_FIELDS)
@@ -86,7 +88,8 @@ def test_export_writes_every_file_as_expected(db, tmp_path, capsys):
     assert timedelta(0) <= datetime.now(timezone.utc) - generated < timedelta(minutes=5)
 
     assert sorted(p.name for p in data.iterdir()) == [
-        "meta.json", "requests.csv", "requests.json", "scorecard.csv", "scorecard.json"]
+        "meta.json", "request_events.csv", "request_events.json", "requests.csv", "requests.json",
+        "scorecard.csv", "scorecard.json"]
     assert (out / "law.py").read_text("utf-8") == (export.ROOT / "law.py").read_text("utf-8")
     for page in ("index.html", "methodology.html"):
         assert (out / page).exists()

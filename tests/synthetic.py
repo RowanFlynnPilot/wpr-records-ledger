@@ -180,32 +180,57 @@ EXPECTED_SCORECARD = [
 ]
 
 
-def _listed(agency, filed_on, subject, status, held, met, quoted=None, paid=None, reason=None, notice=None,
-            audit=None, channel="email"):
-    return {"agency": agency, "filed_on": filed_on, "public_subject": subject, "audit_round": audit,
+def _listed(ref, agency, filed_on, subject, status, held, met, quoted=None, paid=None, reason=None,
+            notice=None, audit=None, channel="email"):
+    return {"ref": ref, "agency": agency, "filed_on": filed_on, "public_subject": subject, "audit_round": audit,
             "channel": channel, "status": status,
             "held_wd": held, "benchmark_result": met, "fees_quoted_cents": quoted,
             "fees_paid_cents": paid, "denial_reason": reason, "remedy_notice": notice}
 
 
 EXPECTED_REQUESTS = [
-    _listed(CITY, "2026-11-09", "Ambulance billing complaints", "partially_denied", 2, True, notice=False,
+    _listed("2026-11-09-city-of-testville-2", CITY, "2026-11-09", "Ambulance billing complaints", "partially_denied", 2, True, notice=False,
             channel="oral"),
-    _listed(CITY, "2026-11-09", "Use-of-force reports, 2025", "denied", 4, None,
+    _listed("2026-11-09-city-of-testville-1", CITY, "2026-11-09", "Use-of-force reports, 2025", "denied", 4, None,
             reason=DENIAL_REASON, notice=True),
-    _listed(CITY, "2026-11-02", "Contract with body-camera vendor", "open", 80, False),
-    _listed(CITY, "2026-11-02", "Council members' emails about the budget", "denial_reversed", 5, True,
+    _listed("2026-11-02-city-of-testville-2", CITY, "2026-11-02", "Contract with body-camera vendor", "open", 80, False),
+    _listed("2026-11-02-city-of-testville-1", CITY, "2026-11-02", "Council members' emails about the budget", "denial_reversed", 5, True,
             notice=False, channel="mail"),
-    _listed(CITY, "2026-10-26", "Lead service line inventory", "no_records", 4, None),
-    _listed(CITY, "2026-10-19", "Building inspection reports, 500 block of Main St.", "fulfilled", 3, True,
+    _listed("2026-10-26-city-of-testville-1", CITY, "2026-10-26", "Lead service line inventory", "no_records", 4, None),
+    _listed("2026-10-19-city-of-testville-2", CITY, "2026-10-19", "Building inspection reports, 500 block of Main St.", "fulfilled", 3, True,
             quoted=3250, paid=3250),
-    _listed(CITY, "2026-10-19", "Snowplow GPS logs, January 2026", "fulfilled", 3, True, channel="portal"),
-    _listed(CITY, "2026-10-05", "Parking ticket totals by month", "withdrawn", 2, None),
-    _listed(DISTRICT, "2026-10-05", "Bus contract bids", "fulfilled", 4, True, audit="2026-Q4"),
-    _listed(CITY, "2026-10-01", "Police overtime records, 2025", "fulfilled", 5, True, audit="2026-Q4"),
-    _listed(CITY, "2026-09-14", "Fire department response times, 2024–2026", "fulfilled", 51, None,
+    _listed("2026-10-19-city-of-testville-1", CITY, "2026-10-19", "Snowplow GPS logs, January 2026", "fulfilled", 3, True, channel="portal"),
+    _listed("2026-10-05-city-of-testville-1", CITY, "2026-10-05", "Parking ticket totals by month", "withdrawn", 2, None),
+    _listed("2026-10-05-testville-school-district-1", DISTRICT, "2026-10-05", "Bus contract bids", "fulfilled", 4, True, audit="2026-Q4"),
+    _listed("2026-10-01-city-of-testville-1", CITY, "2026-10-01", "Police overtime records, 2025", "fulfilled", 5, True, audit="2026-Q4"),
+    _listed("2026-09-14-city-of-testville-1", CITY, "2026-09-14", "Fire department response times, 2024–2026", "fulfilled", 51, None,
             quoted=9000, paid=9000),
 ]
+
+
+
+def _tl(ref, *events):
+    return [{"ref": ref, "event_on": f"2026-{on}", "event_type": kind, "amount_cents": amount}
+            for kind, on, amount in events]
+
+
+# Timelines of the listed requests, in the request list's order; R11 has none.
+EXPECTED_EVENTS = (
+    _tl("2026-11-09-city-of-testville-2", ("partially_denied", "11-11", None))
+    + _tl("2026-11-09-city-of-testville-1", ("denied", "11-13", None))
+    + _tl("2026-11-02-city-of-testville-1", ("denied", "11-09", None), ("appealed_da", "11-16", None),
+          ("denial_reversed", "12-10", None))
+    + _tl("2026-10-26-city-of-testville-1", ("no_records", "10-30", None))
+    + _tl("2026-10-19-city-of-testville-2", ("fee_quoted", "10-21", 3250), ("fee_paid", "10-28", 3250),
+          ("fulfilled", "10-29", None))
+    + _tl("2026-10-19-city-of-testville-1", ("clarification_requested", "10-20", None),
+          ("clarification_sent", "10-22", None), ("fulfilled", "10-26", None))
+    + _tl("2026-10-05-city-of-testville-1", ("withdrawn", "10-07", None))
+    + _tl("2026-10-05-testville-school-district-1", ("fulfilled", "10-09", None))
+    + _tl("2026-10-01-city-of-testville-1", ("acknowledged", "10-02", None), ("fulfilled", "10-08", None))
+    + _tl("2026-09-14-city-of-testville-1", ("fee_quoted", "09-21", 15000), ("fee_disputed", "09-22", None),
+          ("fee_quoted", "10-05", 9000), ("fee_paid", "10-06", 9000), ("fulfilled", "11-30", None))
+)
 
 EXPECTED_EARLIEST_FILED_ON = "2026-09-01"   # R13; private R16 (Aug 3) is excluded
 

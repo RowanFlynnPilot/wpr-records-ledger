@@ -16,6 +16,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import shutil
 import statistics
 from datetime import date, datetime, timezone
@@ -40,9 +41,12 @@ SCORECARD_FIELDS = (
     "location_fee_under_50", "subject_notice_n", "appeals",
 )
 REQUEST_FIELDS = (
-    "agency", "filed_on", "public_subject", "audit_round", "channel", "status", "held_wd", "benchmark_result",
+    "ref", "agency", "filed_on", "public_subject", "audit_round", "channel", "status", "held_wd",
+    "benchmark_result",
     "fees_quoted_cents", "fees_paid_cents", "denial_reason", "remedy_notice",
 )
+# Listed requests' timelines: no notes, links or itemizations.
+EVENT_FIELDS = ("ref", "event_on", "event_type", "amount_cents")
 META_FIELDS = ("generated_at", "as_of", "earliest_filed_on", "law")
 
 # Private requests never leave the database, and the columns that must never
@@ -175,9 +179,29 @@ def scorecard(derived: list[dict]) -> list[dict]:
     return [agency_row(agency, rows) for agency, rows in sorted(by_agency.items())]
 
 
-def request_row(d: dict) -> dict:
+def _listed(derived: list[dict]) -> list[dict]:
+    """Public requests, newest first."""
+    return sorted((d for d in derived if d["visibility"] == "public" and d["counted"]),
+                  key=lambda d: (-d["filed_on"].toordinal(), d["agency"], d["public_subject"]))
+
+
+def request_refs(listed: list[dict]) -> dict[int, str]:
+    """A key joining each listed request to its timeline: filing date, agency, and
+    its place among that agency's listed requests that day. Database ids are never
+    published, since they count every request, private ones included."""
+    refs: dict[int, str] = {}
+    seen: dict[str, int] = {}
+    for d in sorted(listed, key=lambda d: d["id"]):
+        stem = f"{d['filed_on'].isoformat()}-{re.sub(r'[^a-z0-9]+', '-', d['agency'].lower()).strip('-')}"
+        seen[stem] = seen.get(stem, 0) + 1
+        refs[d["id"]] = f"{stem}-{seen[stem]}"
+    return refs
+
+
+def request_row(d: dict, ref: str) -> dict:
     denial = d["denial"]
     return whitelisted({
+        "ref": ref,
         "agency": d["agency"],
         "filed_on": d["filed_on"].isoformat(),
         "public_subject": d["public_subject"],
@@ -194,10 +218,18 @@ def request_row(d: dict) -> dict:
 
 
 def public_requests(derived: list[dict]) -> list[dict]:
-    """Public requests, newest first."""
-    listed = sorted((d for d in derived if d["visibility"] == "public" and d["counted"]),
-                    key=lambda d: (-d["filed_on"].toordinal(), d["agency"], d["public_subject"]))
-    return [request_row(d) for d in listed]
+    listed = _listed(derived)
+    refs = request_refs(listed)
+    return [request_row(d, refs[d["id"]]) for d in listed]
+
+
+def public_events(derived: list[dict]) -> list[dict]:
+    """Every event of the listed requests, in request-list order, each in law.py's order."""
+    listed = _listed(derived)
+    refs = request_refs(listed)
+    return [whitelisted({"ref": refs[d["id"]], "event_on": e["event_on"].isoformat(),
+                         "event_type": e["event_type"], "amount_cents": e["amount_cents"]}, EVENT_FIELDS)
+            for d in listed for e in law.in_order(d["events"])]
 
 
 def meta(derived: list[dict], as_of: date, generated_at: datetime) -> dict:
@@ -225,7 +257,7 @@ def write_table(data_dir: Path, name: str, rows: list[dict], fields: tuple[str, 
         writer.writerows([_csv_value(row[k]) for k in fields] for row in rows)
 
 
-def write_site(out: Path, card: list[dict], listed: list[dict], meta_doc: dict) -> None:
+def write_site(out: Path, card: list[dict], listed: list[dict], events: list[dict], meta_doc: dict) -> None:
     """The site, law.py for the methodology page, and data/ with JSON and CSV."""
     if out.exists():
         raise ExportError(f"{out} already exists; the export writes a fresh directory")
@@ -235,6 +267,7 @@ def write_site(out: Path, card: list[dict], listed: list[dict], meta_doc: dict) 
     data_dir.mkdir()
     write_table(data_dir, "scorecard", card, SCORECARD_FIELDS)
     write_table(data_dir, "requests", listed, REQUEST_FIELDS)
+    write_table(data_dir, "request_events", events, EVENT_FIELDS)
     (data_dir / "meta.json").write_text(json.dumps(meta_doc, indent=2) + "\n", encoding="utf-8")
 
 
@@ -272,7 +305,7 @@ def run(conninfo: str, out: Path, as_of: date, dry_run: bool) -> None:
     if dry_run:
         print("dry run: nothing written")
         return
-    write_site(out, card, listed, meta_doc)
+    write_site(out, card, listed, public_events(derived), meta_doc)
     print(f"wrote {out}")
 
 

@@ -32,11 +32,18 @@ def test_public_request_list_matches_hand_counts():
     assert export.public_requests(derived()) == synthetic.EXPECTED_REQUESTS
 
 
+def test_listed_requests_timelines_match_hand_list():
+    assert export.public_events(derived()) == synthetic.EXPECTED_EVENTS
+    assert {e["ref"] for e in synthetic.EXPECTED_EVENTS} <= {r["ref"] for r in synthetic.EXPECTED_REQUESTS}
+
+
 def test_output_rows_carry_only_whitelisted_fields():
     for row in export.scorecard(derived()):
         assert tuple(row) == export.SCORECARD_FIELDS
     for row in export.public_requests(derived()):
         assert tuple(row) == export.REQUEST_FIELDS
+    for row in export.public_events(derived()):
+        assert tuple(row) == export.EVENT_FIELDS
     with pytest.raises(export.ExportError):
         export.whitelisted({"agency": "x", "records_sought": "y"}, ("agency",))
 
@@ -169,7 +176,11 @@ def test_write_site(tmp_path):
     out = tmp_path / "site"
     card, listed = export.scorecard(derived()), export.public_requests(derived())
     doc = export.meta(derived(), AS_OF, datetime.now(timezone.utc))
-    export.write_site(out, card, listed, doc)
+    events = export.public_events(derived())
+    export.write_site(out, card, listed, events, doc)
+    assert json.loads((out / "data" / "request_events.json").read_text("utf-8")) == synthetic.EXPECTED_EVENTS
+    assert read_csv(out / "data" / "request_events.csv") == [list(export.EVENT_FIELDS)] + [
+        [as_csv_cell(row[k]) for k in export.EVENT_FIELDS] for row in synthetic.EXPECTED_EVENTS]
     assert json.loads((out / "data" / "scorecard.json").read_text("utf-8")) == synthetic.EXPECTED_SCORECARD
     assert json.loads((out / "data" / "requests.json").read_text("utf-8")) == synthetic.EXPECTED_REQUESTS
     assert read_csv(out / "data" / "scorecard.csv") == [list(export.SCORECARD_FIELDS)] + [
@@ -179,4 +190,4 @@ def test_write_site(tmp_path):
     assert (out / "law.py").read_text("utf-8") == (export.ROOT / "law.py").read_text("utf-8")
     assert (out / "index.html").exists() and (out / "methodology.html").exists()
     with pytest.raises(export.ExportError):
-        export.write_site(out, card, listed, doc)   # never writes over an existing directory
+        export.write_site(out, card, listed, events, doc)   # never writes over an existing directory

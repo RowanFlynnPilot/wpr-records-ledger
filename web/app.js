@@ -1,8 +1,8 @@
 import { agencyCard } from "./cards.js";
 import { LEAD } from "./config.js";
 import {
-  benchmarkLabel, el, fmtCents, fmtDate, fmtDateTime, fmtInt, loadJSON, loadText, showError, STATUS_LABELS,
-  warnIfStale,
+  benchmarkLabel, el, EVENT_LABELS, fmtCents, fmtDate, fmtDateTime, fmtInt, loadJSON, loadText, showError,
+  STATUS_LABELS, warnIfStale,
 } from "./common.js";
 
 const main = document.querySelector("main");
@@ -86,12 +86,23 @@ function renderAudit(rounds) {
   draw();
 }
 
-function requestRow(r) {
+function timeline(events) {
+  if (!events?.length) return null;
+  const item = (e) => {
+    const label = e.event_type === "fee_paid" && e.amount_cents === 0 ? "Agency waived the fee" : EVENT_LABELS[e.event_type];
+    const amount = e.amount_cents ? `: ${fmtCents(e.amount_cents)}` : "";
+    return el("li", {}, el("span", { class: "date" }, fmtDate(e.event_on)), ` ${label}${amount}`);
+  };
+  return el("details", { class: "timeline" }, el("summary", {}, `Timeline, ${events.length} event${events.length === 1 ? "" : "s"}`),
+    el("ol", {}, events.map(item)));
+}
+
+function requestRow(r, events) {
   const benchClass = r.benchmark_result === false ? "bench bench-missed" : "bench";
   return el("tr", {},
     el("td", { class: "date", "data-label": "Filed" }, fmtDate(r.filed_on)),
     el("td", { "data-label": "Agency" }, r.agency),
-    el("td", { class: "subject" }, r.public_subject),
+    el("td", { class: "subject" }, r.public_subject, timeline(events)),
     el("td", { class: "status-cell", "data-label": "Status" }, el("span", { class: "status" }, STATUS_LABELS[r.status]), denialNote(r)),
     el("td", { class: "num", "data-label": "Working days held" }, fmtInt(r.held_wd)),
     el("td", { class: benchClass, "data-label": "10-day benchmark" }, benchmarkLabel(r.benchmark_result)),
@@ -99,7 +110,9 @@ function requestRow(r) {
     feeCell(r.fees_paid_cents, "Fee paid"));
 }
 
-function renderRequests(requests) {
+function renderRequests(requests, events) {
+  const byRef = {};
+  for (const e of events) (byRef[e.ref] ??= []).push(e);
   const select = document.getElementById("agency-filter");
   const body = document.getElementById("request-rows");
   const shown = document.getElementById("shown");
@@ -108,7 +121,7 @@ function renderRequests(requests) {
   }
   const draw = () => {
     const rows = requests.filter((r) => !select.value || r.agency === select.value);
-    body.replaceChildren(...(rows.length ? rows.map(requestRow)
+    body.replaceChildren(...(rows.length ? rows.map((r) => requestRow(r, byRef[r.ref]))
       : [el("tr", {}, el("td", { colspan: "8", class: "empty" }, "No listed requests yet."))]));
     shown.textContent = `${fmtInt(rows.length)} of ${fmtInt(requests.length)} listed requests`;
   };
@@ -117,9 +130,9 @@ function renderRequests(requests) {
 }
 
 async function start() {
-  const [scorecard, requests, meta, leadHtml] = await Promise.all([
-    loadJSON("data/scorecard.json"), loadJSON("data/requests.json"), loadJSON("data/meta.json"),
-    loadText(`leads/${LEAD}.html`),
+  const [scorecard, requests, events, meta, leadHtml] = await Promise.all([
+    loadJSON("data/scorecard.json"), loadJSON("data/requests.json"), loadJSON("data/request_events.json"),
+    loadJSON("data/meta.json"), loadText(`leads/${LEAD}.html`),
   ]);
   document.getElementById("updated").textContent =
     `Updated ${fmtDateTime(meta.generated_at)} · open requests measured to ${fmtDate(meta.as_of)}`;
@@ -129,7 +142,7 @@ async function start() {
   fillLead(document.getElementById("lead"), leadHtml, scorecard, meta, rounds);
   document.getElementById("cards").replaceChildren(...scorecard.map((a) => agencyCard(a, meta.law)));
   renderAudit(rounds);
-  renderRequests(requests);
+  renderRequests(requests, events);
 }
 
 start().catch((err) => showError(main, err));

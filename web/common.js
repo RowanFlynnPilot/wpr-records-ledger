@@ -54,6 +54,27 @@ export const STATUS_LABELS = {
   withdrawn: "Withdrawn",
 };
 
+export const EVENT_LABELS = {
+  acknowledged: "Agency acknowledged the request",
+  clarification_requested: "Agency asked for clarification",
+  delay_notified: "Agency said it needed more time",
+  fee_quoted: "Agency quoted a fee",
+  subject_notice_sent: "Agency notified the record's subject, s. 19.356",
+  records_released: "Agency released a batch of records",
+  fulfilled: "Agency provided the records",
+  partially_denied: "Agency released some records and withheld others",
+  denied: "Agency denied the request",
+  no_records: "Agency said no records exist",
+  denial_reversed: "Agency released everything it had withheld",
+  clarification_sent: "WPR clarified the request",
+  fee_paid: "WPR paid the fee",
+  fee_disputed: "WPR disputed the fee",
+  withdrawn: "WPR withdrew the request",
+  appealed_da: "WPR asked the district attorney to review",
+  appealed_ag: "WPR asked the attorney general to review",
+  mandamus_filed: "WPR sued for the records (mandamus)",
+};
+
 export function benchmarkLabel(result) {
   if (result === true) return "Within 10 days";
   if (result === false) return "Past 10 days";

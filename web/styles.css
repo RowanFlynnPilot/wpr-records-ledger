@@ -136,6 +136,11 @@ thead th.num { white-space: normal; }
 .bench { white-space: nowrap; }
 .bench-missed { color: var(--rust-text); }
 .denial { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.25rem; }
+.timeline { margin-top: 0.35rem; font-weight: 400; font-size: 0.8rem; }
+.timeline summary { cursor: pointer; color: var(--teal-deep); }
+.timeline ol { list-style: none; margin: 0.35rem 0 0; padding: 0 0 0 0.6rem; border-left: 2px solid var(--line); }
+.timeline li { padding: 0.1rem 0; color: var(--ink); }
+.timeline .date { font-family: var(--mono); font-size: 0.74rem; color: var(--ink-soft); white-space: nowrap; }
 .empty { padding: 1.25rem; color: var(--ink-soft); }
 
 /* ── downloads, methodology ───────────────────────────────────────────────── */
