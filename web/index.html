@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Records Ledger — Wausau Pilot &amp; Review</title>
+    <meta name="description" content="How central Wisconsin agencies answer Wausau Pilot & Review's public records requests: how long they hold them, what they charge, what they deny, and whether their denials follow the law." />
+    <link rel="icon" href="wpr-badge.jpg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Public+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="masthead">
+        <a class="brand" href="https://wausaupilotandreview.com" target="_blank" rel="noreferrer">
+          <img src="wpr-badge.jpg" alt="" width="54" height="54" />
+          <span class="brand-wordmark">Wausau Pilot <span class="amp">&amp;</span> Review</span>
+        </a>
+        <p class="tagline">Where Locals Look First For News</p>
+        <div class="rule-double" aria-hidden="true"></div>
+        <p class="eyebrow">A newsroom data project</p>
+        <h1>The Records Ledger</h1>
+        <p class="dek">
+          How central Wisconsin agencies answer the public records requests Wausau Pilot &amp; Review
+          files: how long they hold a request, what they charge, what they deny, and whether their
+          denials follow the law.
+        </p>
+        <p class="updated" id="updated"></p>
+        <nav class="page-nav" aria-label="On this page">
+          <a href="#agencies">Agencies</a>
+          <a href="#requests">Requests</a>
+          <a href="#downloads">Download the data</a>
+          <a href="methodology.html">Methodology</a>
+        </nav>
+      </header>
+
+      <!-- The lead: one swappable block from leads/, chosen in config.js. -->
+      <section id="lead" class="lead" aria-live="polite"></section>
+
+      <section id="agencies" aria-labelledby="agencies-h">
+        <h2 id="agencies-h">Agencies</h2>
+        <p class="section-dek">
+          One card per agency, in alphabetical order; nothing is ranked. A median or share appears
+          only when it rests on at least <span class="min-n">5</span> requests, and the number it
+          rests on is always shown.
+        </p>
+        <div class="cards" id="cards"></div>
+      </section>
+
+      <section id="requests" aria-labelledby="requests-h">
+        <h2 id="requests-h">Requests</h2>
+        <p class="section-dek">
+          Requests are listed once the story they were filed for has run, or when the editor decides
+          listing is safe. Unlisted requests still count in the agency figures once they are closed or
+          90 days old.
+        </p>
+        <div class="toolbar">
+          <label for="agency-filter">Agency</label>
+          <select id="agency-filter"><option value="">All agencies</option></select>
+          <span class="shown" id="shown" aria-live="polite"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="requests">
+            <caption class="visually-hidden">Listed public records requests, newest first</caption>
+            <thead>
+              <tr>
+                <th scope="col">Filed</th>
+                <th scope="col">Agency</th>
+                <th scope="col">Request</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="num">Working days held</th>
+                <th scope="col">10-day benchmark</th>
+                <th scope="col" class="num">Fee quoted</th>
+                <th scope="col" class="num">Fee paid</th>
+              </tr>
+            </thead>
+            <tbody id="request-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="downloads" aria-labelledby="downloads-h">
+        <h2 id="downloads-h">Download the data</h2>
+        <p class="section-dek">
+          Published under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>: credit
+          Wausau Pilot &amp; Review. Rebuilt every night from the newsroom's log.
+        </p>
+        <div class="downloads">
+          <div class="download">
+            <h3>Agency scorecard</h3>
+            <p>One row per agency: counts, the simple-request median and benchmark share with their n, denials, fees, appeals.</p>
+            <a href="data/scorecard.csv" download>scorecard.csv</a><a href="data/scorecard.json">scorecard.json</a>
+          </div>
+          <div class="download">
+            <h3>Listed requests</h3>
+            <p>One row per listed request: agency, filing date, subject, status, days held, benchmark, fees, any denial's stated reason.</p>
+            <a href="data/requests.csv" download>requests.csv</a><a href="data/requests.json">requests.json</a>
+          </div>
+          <div class="download">
+            <h3>Rules and holidays</h3>
+            <p>When the data was built, the earliest filing it covers, the values in law.py and the holiday list.</p>
+            <a href="data/meta.json">meta.json</a><a href="law.py">law.py</a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="site-footer">
+        <img src="wpr-badge.jpg" alt="" width="44" height="44" />
+        <div>
+          <p>Data: Wausau Pilot &amp; Review's own log of the public records requests it files, rebuilt nightly. Rules: <a href="methodology.html">methodology</a> and <a href="law.py">law.py</a>.</p>
+          <p>This reports WPR's experience as one requester. It is not a measure of how an agency treats anyone else, and DOJ's 10-day figure is guidance, not a deadline.</p>
+          <p>Code MIT, data CC BY 4.0 · <a href="https://github.com/RowanFlynnPilot/wpr-records-ledger">Source on GitHub</a></p>
+          <p><strong>Wausau Pilot &amp; Review</strong> · 715-301-5539</p>
+        </div>
+      </footer>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

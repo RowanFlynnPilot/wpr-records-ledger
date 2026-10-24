@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Methodology — The Records Ledger</title>
+    <meta name="description" content="How the Records Ledger counts working days, judges the 10-day benchmark and handles small samples, with every rule it uses." />
+    <link rel="icon" href="wpr-badge.jpg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Public+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="masthead">
+        <a class="brand" href="https://wausaupilotandreview.com" target="_blank" rel="noreferrer">
+          <img src="wpr-badge.jpg" alt="" width="54" height="54" />
+          <span class="brand-wordmark">Wausau Pilot <span class="amp">&amp;</span> Review</span>
+        </a>
+        <p class="tagline">Where Locals Look First For News</p>
+        <div class="rule-double" aria-hidden="true"></div>
+        <p class="eyebrow"><a href="index.html">The Records Ledger</a></p>
+        <h1>Methodology</h1>
+        <p class="dek">Every rule the ledger uses, the values behind them, and the holidays it skips.</p>
+        <p class="updated" id="updated"></p>
+      </header>
+
+      <section aria-labelledby="scope-h" class="prose">
+        <h2 id="scope-h">What the numbers are</h2>
+        <ul>
+          <li><strong>Our own experience.</strong> The ledger logs every public records request Wausau Pilot &amp; Review files and every reply it gets. It describes how agencies have answered one newsroom, not how they treat other requesters.</li>
+          <li><strong>Working days held.</strong> Counted from the day a request is filed up to, but not including, the day of the agency's final response: the records, a denial, or a statement that no records exist. Weekends and the holidays listed below are skipped. So are the days the agency was waiting on us, from its request for clarification to our answer, and from its fee quote to our payment or dispute. An interim batch of records does not stop the count. A request we withdraw stops it on the day we withdraw.</li>
+          <li><strong>Simple and complex.</strong> A simple request seeks a limited number of easily identifiable records, the Department of Justice's wording. The reporter who filed a request never classifies it; a second staff member does.</li>
+          <li><strong>Unlisted requests.</strong> A request tied to a story we haven't published is not listed, and it enters the agency figures only once it is closed or <span data-law="STATS_ONLY_EMBARGO_DAYS"></span> days old, so a nightly count can't reveal it.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="bench-h" class="prose">
+        <h2 id="bench-h">The 10-day benchmark, and its limits</h2>
+        <p>
+          Wisconsin law sets no deadline. It requires an agency to respond "as soon as practicable and
+          without delay," s. 19.35(4)(a). The Department of Justice's position is that about
+          <span data-law="SIMPLE_REQUEST_BENCHMARK_WD"></span> working days is generally reasonable for a
+          simple request. The ledger uses that figure as a benchmark for simple requests only. It is
+          guidance, not a legal deadline, and missing it is not by itself a violation.
+        </p>
+        <ul>
+          <li><strong>Met:</strong> the final response came within <span data-law="SIMPLE_REQUEST_BENCHMARK_WD"></span> working days held.</li>
+          <li><strong>Missed:</strong> more than <span data-law="SIMPLE_REQUEST_BENCHMARK_WD"></span> working days held, whether the request is still open or we withdrew it after that point; or the agency sent a s. 19.356 notice to an employee after that point.</li>
+          <li><strong>Not judged:</strong> complex and unclassified requests; requests where the agency sent a s. 19.356 notice within the first <span data-law="SIMPLE_REQUEST_BENCHMARK_WD"></span> working days, since the statute then bars release for 12 days; and requests withdrawn or still open inside the first <span data-law="SIMPLE_REQUEST_BENCHMARK_WD"></span> working days.</li>
+          <li><strong>The median</strong> of working days held covers the simple requests the agency answered that the benchmark judges, so both rest on the same footing.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="law-h" class="prose">
+        <h2 id="law-h">Denials and fees</h2>
+        <ul>
+          <li><strong>Denials.</strong> A written request must get a written denial that gives specific reasons and says the denial can be reviewed by mandamus or on application to the district attorney or the attorney general, s. 19.35(4)(b). The ledger counts denials of written requests that state no reason or give no such notice. An oral request is not held to those rules.</li>
+          <li><strong>Fees.</strong> An agency may charge only the actual, necessary and direct cost of a request, s. 19.35(3). A location fee is allowed only when the location cost alone is $50 or more, so the ledger counts itemized quotes with a smaller location charge. A fee shown as waived is one the agency quoted and then dropped. When an agency revises a quote, the latest quote is the one shown.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="small-h" class="prose">
+        <h2 id="small-h">Small samples</h2>
+        <p>
+          A median or share appears only when the requests it rests on number at least
+          <span data-law="MIN_N_FOR_RATES"></span>, counted separately for each figure. That number is
+          always shown. Agencies are listed alphabetically and never ranked.
+        </p>
+      </section>
+
+      <section aria-labelledby="values-h">
+        <h2 id="values-h">The values in law.py</h2>
+        <div class="table-wrap">
+          <table class="values">
+            <caption class="visually-hidden">Values the ledger's rules use</caption>
+            <thead><tr><th scope="col">Name</th><th scope="col">Value</th><th scope="col">What it is</th></tr></thead>
+            <tbody id="values"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="holidays-h">
+        <h2 id="holidays-h">Holidays skipped</h2>
+        <p class="section-dek">Days agency offices are closed, set by the editor. The count skips these on top of weekends.</p>
+        <div id="holidays"></div>
+      </section>
+
+      <section aria-labelledby="source-h">
+        <h2 id="source-h">law.py, in full</h2>
+        <p class="section-dek">The code that applies every rule above. <a href="law.py">Download law.py</a>.</p>
+        <pre class="source" id="source" tabindex="0" aria-label="Source of law.py"></pre>
+      </section>
+
+      <footer class="site-footer">
+        <img src="wpr-badge.jpg" alt="" width="44" height="44" />
+        <div>
+          <p>Sources: <a href="https://www.wisdoj.gov/Open%20Government/PRL_guide.pdf">DOJ Public Records Law Compliance Guide (June 2025)</a>; <a href="https://www.wisdoj.gov/Open%20Government/Public%20Records%20Request%20Fee%20Schedule%20June%202025.pdf">DOJ fee schedule (June 2025)</a>; Wis. Stat. ss. 19.35, 19.356, 19.37.</p>
+          <p>Code MIT, data CC BY 4.0 · <a href="https://github.com/RowanFlynnPilot/wpr-records-ledger">Source on GitHub</a></p>
+          <p><strong>Wausau Pilot &amp; Review</strong> · 715-301-5539</p>
+        </div>
+      </footer>
+    </main>
+    <script type="module" src="methodology.js"></script>
+  </body>
+</html>
