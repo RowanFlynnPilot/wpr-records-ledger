@@ -95,6 +95,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
   - a second terminal event follows the first (a request has one final event; log a later batch as `records_released`)
   - an agency's final response follows an unanswered fee quote or clarification request, either kind (log `fee_paid`, `fee_disputed` or `clarification_sent` first)
   - Its messages name event types, never dates, because the export prints them to a public log.
+- **Entry checks.** Triggers in `schema.sql` reject three of those mistakes as staff type them: an event dated before filing (or `filed_on` moved past logged events), a second final event, and anything but a remedy after `withdrawn`. They mirror `law.validate`, which stays the authority; `test_entry_checks_agree_with_law_validate` runs each case through both, and every trigger rule is mutation-checked in `tests.sql`.
 - **s. 19.356 notice.** Only a notice dated on or before the final event bears on the benchmark; one sent before a later batch doesn't.
 - **Final event and status.** `final_event()` is the first terminal event; `status()` is its type, or `open`.
 - **Median membership.** `counts_in_median()`: simple requests the agency answered (not withdrawn, not open) that `benchmark_result` judges. An early s. 19.356 notice keeps a request out of both the median and the share.
@@ -151,6 +152,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
   - Someone other than the filer sets `complexity`.
   - For a quarterly audit request, set `audit_round` (e.g. `2026-Q3`). Its `public_subject` is the audit's wording.
 - **When the agency replies:** add one `request_events` row dated the day the reply arrived.
+  - The Table Editor refuses an event dated before filing, a second final event, or anything after a withdrawal but an appeal. Its message says why.
   - For a fee quote: enter the total, and the split only if the agency gave one.
   - **Answering a quote or question:** always log your answer (`fee_paid`, `fee_paid` with 0 if waived, `fee_disputed`, or `clarification_sent`), or the export will stop.
   - For a denial: paste the stated reason, or leave it empty if none was given, and record whether the letter mentioned mandamus or review by the DA or AG. **For a public request the reason is published**, so like `public_subject` it must not name individuals.

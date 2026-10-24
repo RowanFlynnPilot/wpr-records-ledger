@@ -140,3 +140,39 @@ def test_invalid_event_log_in_the_database_stops_the_export(db, tmp_path):
             owner.execute("delete from request_events where request_id = %s", (request_id,))
             owner.execute("delete from requests where id = %s", (request_id,))
             owner.commit()
+
+
+# Each mistake the database rejects at entry, which law.validate must reject too.
+ENTRY_CHECKS = [
+    ("event dated before filing", [synthetic.ev("acknowledged", 9, 30)]),
+    ("second final event", [synthetic.ev("fulfilled", 10, 5), synthetic.ev("no_records", 10, 9)]),
+    ("event after withdrawn", [synthetic.ev("withdrawn", 10, 5), synthetic.ev("acknowledged", 10, 6)]),
+    ("withdrawn dated before a logged event", [synthetic.ev("acknowledged", 10, 6), synthetic.ev("withdrawn", 10, 5)]),
+]
+
+
+@pytest.mark.parametrize("label, events", ENTRY_CHECKS, ids=[c[0] for c in ENTRY_CHECKS])
+def test_entry_checks_agree_with_law_validate(db, label, events):
+    owner_url, _ = db
+    filed = synthetic.d(10, 1)
+    with pytest.raises(law.InvalidRequest):
+        law.validate(filed, events, synthetic.AS_OF)
+    with psycopg.connect(owner_url) as owner:   # never committed
+        request_id = owner.execute(
+            """insert into requests (agency_id, filed_on, channel, filed_by, records_sought)
+               select id, %s, 'email', 'SENTINEL-filer', 'entry check' from agencies where name = %s
+               returning id""", (filed, synthetic.CITY)).fetchone()[0]
+        with pytest.raises(psycopg.errors.CheckViolation):
+            for e in events:
+                owner.execute("insert into request_events (request_id, event_type, event_on) values (%s, %s, %s)",
+                              (request_id, e["event_type"], e["event_on"]))
+        owner.rollback()
+
+
+def test_filed_on_cannot_move_past_logged_events(db):
+    owner_url, _ = db
+    with psycopg.connect(owner_url) as owner:   # never committed
+        with pytest.raises(psycopg.errors.CheckViolation):
+            owner.execute("update requests set filed_on = '2026-12-01' where public_subject = %s",
+                          ("Police overtime records, 2025",))
+        owner.rollback()

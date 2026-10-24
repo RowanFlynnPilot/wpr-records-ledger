@@ -42,6 +42,18 @@ join (values
   on true
 where r.records_sought = 'request A' and r.filed_by = 'ZZTEST';
 
+-- C: open, acknowledged only (the target of the event constraint cases below)
+-- D: withdrawn
+insert into requests (agency_id, filed_on, channel, filed_by, records_sought)
+select id, '2026-10-01', 'email', 'ZZTEST', v.r
+from agencies, (values ('request C'), ('request D')) as v(r) where name = 'ZZTEST Agency';
+
+insert into request_events (request_id, event_type, event_on)
+select id, 'withdrawn', '2026-10-05' from requests where records_sought = 'request D' and filed_by = 'ZZTEST';
+
+insert into request_events (request_id, event_type, event_on)
+select id, 'acknowledged', '2026-10-06' from requests where records_sought = 'request C' and filed_by = 'ZZTEST';
+
 insert into request_events (request_id, event_type, event_on, amount_cents)
 select id, 'fee_quoted', '2026-10-05', 2500 from requests where records_sought = 'request B' and filed_by = 'ZZTEST';
 
@@ -53,8 +65,8 @@ select id, 'no_records', '2026-10-09' from requests where records_sought = 'requ
 
 do $$ begin
   if (select count(*) from request_events e join requests r on r.id = e.request_id
-      where r.filed_by = 'ZZTEST') <> 12 then
-    raise exception 'TEST FAILED: expected 12 happy-path events';
+      where r.filed_by = 'ZZTEST') <> 14 then
+    raise exception 'TEST FAILED: expected 14 happy-path events';
   end if;
 end $$;
 
@@ -103,16 +115,31 @@ insert into must_fail values
       select id, 'acknowledged', '2026-10-06', 100 from requests where records_sought = 'request A'$s$),
   ('denial without remedy_notice',
    $s$insert into request_events (request_id, event_type, event_on, denial_reason)
-      select id, 'denied', '2026-10-06', 'Ongoing investigation' from requests where records_sought = 'request A'$s$),
+      select id, 'denied', '2026-10-06', 'Ongoing investigation' from requests where records_sought = 'request C'$s$),
   ('blank denial_reason',
    $s$insert into request_events (request_id, event_type, event_on, denial_reason, remedy_notice)
-      select id, 'denied', '2026-10-06', '  ', true from requests where records_sought = 'request A'$s$),
+      select id, 'denied', '2026-10-06', '  ', true from requests where records_sought = 'request C'$s$),
   ('denial_reason on fulfilled',
    $s$insert into request_events (request_id, event_type, event_on, denial_reason)
-      select id, 'fulfilled', '2026-10-06', 'n/a' from requests where records_sought = 'request A'$s$),
+      select id, 'fulfilled', '2026-10-06', 'n/a' from requests where records_sought = 'request C'$s$),
   ('remedy_notice on no_records',
    $s$insert into request_events (request_id, event_type, event_on, remedy_notice)
-      select id, 'no_records', '2026-10-06', true from requests where records_sought = 'request A'$s$);
+      select id, 'no_records', '2026-10-06', true from requests where records_sought = 'request C'$s$),
+  -- Entry checks (triggers)
+  ('event dated before filing',
+   $s$insert into request_events (request_id, event_type, event_on)
+      select id, 'acknowledged', '2026-09-30' from requests where records_sought = 'request C'$s$),
+  ('second final event',
+   $s$insert into request_events (request_id, event_type, event_on)
+      select id, 'fulfilled', '2026-11-02' from requests where records_sought = 'request A'$s$),
+  ('event after withdrawn',
+   $s$insert into request_events (request_id, event_type, event_on)
+      select id, 'acknowledged', '2026-10-06' from requests where records_sought = 'request D'$s$),
+  ('withdrawn dated before an event already logged',
+   $s$insert into request_events (request_id, event_type, event_on)
+      select id, 'withdrawn', '2026-10-05' from requests where records_sought = 'request C'$s$),
+  ('filed_on moved after logged events',
+   $s$update requests set filed_on = '2026-10-03' where records_sought = 'request A' and filed_by = 'ZZTEST'$s$);
 
 do $$
 declare t record;
@@ -160,8 +187,8 @@ end $$;
 -- ── ledger_export: reads everything, writes nothing ─────────────────────────
 set local role ledger_export;
 do $$ begin
-  if (select count(*) from requests where filed_by = 'ZZTEST') <> 2
-     or (select count(*) from request_events e join requests r on r.id = e.request_id where r.filed_by = 'ZZTEST') <> 12 then
+  if (select count(*) from requests where filed_by = 'ZZTEST') <> 4
+     or (select count(*) from request_events e join requests r on r.id = e.request_id where r.filed_by = 'ZZTEST') <> 14 then
     raise exception 'TEST FAILED: ledger_export cannot read the test rows';
   end if;
   begin

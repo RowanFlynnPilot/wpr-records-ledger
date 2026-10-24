@@ -124,6 +124,61 @@ create table request_events (
 create index requests_agency_id_idx on requests (agency_id);
 create index request_events_request_id_idx on request_events (request_id);
 
+-- Entry checks: the Table Editor rejects the plainest logging mistakes as they
+-- are typed, instead of the nightly export stopping on them. They mirror three
+-- of law.validate()'s rules, which stays the authority (it also checks fee and
+-- clarification answers, and dates after the export day); the e2e tests check
+-- that the two agree.
+create function check_request_event() returns trigger
+language plpgsql set search_path = public as $$
+declare
+  filed date;
+  withdrawn_on date;
+begin
+  select filed_on into filed from requests where id = new.request_id;
+  if new.event_on < filed then
+    raise exception '% on % is dated before the request was filed on %', new.event_type, new.event_on, filed
+      using errcode = 'check_violation';
+  end if;
+  if new.event_type in ('fulfilled', 'partially_denied', 'denied', 'no_records', 'withdrawn')
+     and exists (select 1 from request_events
+                 where request_id = new.request_id and id is distinct from new.id
+                   and event_type in ('fulfilled', 'partially_denied', 'denied', 'no_records', 'withdrawn')) then
+    raise exception 'this request already has its final event; log a later batch as records_released'
+      using errcode = 'check_violation';
+  end if;
+  select min(event_on) into withdrawn_on from request_events
+  where request_id = new.request_id and id is distinct from new.id and event_type = 'withdrawn';
+  if new.event_type not in ('appealed_da', 'appealed_ag', 'mandamus_filed') and new.event_on > withdrawn_on then
+    raise exception 'the request was withdrawn on %; only an appeal or suit may follow', withdrawn_on
+      using errcode = 'check_violation';
+  end if;
+  if new.event_type = 'withdrawn'
+     and exists (select 1 from request_events
+                 where request_id = new.request_id and id is distinct from new.id and event_on > new.event_on
+                   and event_type not in ('appealed_da', 'appealed_ag', 'mandamus_filed')) then
+    raise exception 'events are logged after % ; a withdrawal must be the last event but appeals', new.event_on
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+create trigger request_events_check before insert or update on request_events
+  for each row execute function check_request_event();
+
+create function check_request_filed_on() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if exists (select 1 from request_events where request_id = new.id and event_on < new.filed_on) then
+    raise exception 'filed_on % is after events already logged for this request', new.filed_on
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+create trigger requests_filed_on_check before update of filed_on on requests
+  for each row execute function check_request_filed_on();
+
 alter table agencies       enable row level security;
 alter table requests       enable row level security;
 alter table request_events enable row level security;
