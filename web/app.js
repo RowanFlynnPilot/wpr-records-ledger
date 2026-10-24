@@ -80,7 +80,7 @@ function requestRow(r) {
     el("td", { class: "date", "data-label": "Filed" }, fmtDate(r.filed_on)),
     el("td", { "data-label": "Agency" }, r.agency),
     el("td", { class: "subject" }, r.public_subject),
-    el("td", { "data-label": "Status" }, el("span", { class: "status" }, STATUS_LABELS[r.status]), denialNote(r)),
+    el("td", { class: "status-cell", "data-label": "Status" }, el("span", { class: "status" }, STATUS_LABELS[r.status]), denialNote(r)),
     el("td", { class: "num", "data-label": "Working days held" }, fmtInt(r.held_wd)),
     el("td", { class: benchClass, "data-label": "10-day benchmark" }, benchmarkLabel(r.benchmark_result)),
     feeCell(r.fees_quoted_cents, "Fee quoted"),

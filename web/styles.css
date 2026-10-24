@@ -104,10 +104,10 @@ section { margin-bottom: 3.25rem; }
 .card-n { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap; }
 .card-mix { font-size: 0.85rem; color: var(--ink-soft); margin: 0 0 1rem; }
 .metric { border-top: 1px solid var(--line); padding: 0.75rem 0; }
-.metric-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.metric-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.25rem 1rem; }
 .metric-label { font-weight: 500; font-size: 0.92rem; }
 .metric-value { font-family: var(--mono); font-weight: 700; font-size: 1.35rem; color: var(--teal-deep); white-space: nowrap; }
-.metric-value.withheld { font-size: 0.85rem; font-weight: 400; color: var(--ink-soft); }
+.metric-value.withheld { font-size: 0.85rem; font-weight: 400; color: var(--ink-soft); white-space: normal; }
 .metric-bench { font-size: 0.8rem; color: var(--ink-soft); margin: 0.15rem 0 0; }
 .counts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .counts li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0; font-size: 0.88rem; border-bottom: 1px dotted var(--line); }
@@ -119,16 +119,19 @@ section { margin-bottom: 3.25rem; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.9rem; font-size: 0.9rem; }
 .toolbar select { font: inherit; padding: 0.35rem 0.5rem; border: 1px solid var(--line); background: var(--white); color: var(--ink); }
 .toolbar .shown { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-soft); }
-.table-wrap { background: var(--white); border: 1px solid var(--line); }
+.table-wrap { background: var(--white); border: 1px solid var(--line); overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 caption { text-align: left; }
-th, td { text-align: left; vertical-align: top; padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--line); }
+th, td { text-align: left; vertical-align: top; padding: 0.6rem 0.55rem; border-bottom: 1px solid var(--line); }
 thead th {
   font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink-soft); font-weight: 700; background: var(--cream);
 }
 td.num, th.num { text-align: right; font-family: var(--mono); white-space: nowrap; }
 td.date { font-family: var(--mono); white-space: nowrap; }
+td.subject { min-width: 11rem; font-weight: 500; }
+td.status-cell { min-width: 9.5rem; }
+thead th.num { white-space: normal; }
 .status { font-weight: 500; }
 .bench { white-space: nowrap; }
 .bench-missed { color: var(--rust-text); }
@@ -136,7 +139,7 @@ td.date { font-family: var(--mono); white-space: nowrap; }
 .empty { padding: 1.25rem; color: var(--ink-soft); }
 
 /* ── downloads, methodology ───────────────────────────────────────────────── */
-.downloads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.downloads { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
 .download { background: var(--white); border: 1px solid var(--line); padding: 1rem 1.1rem; }
 .download p { margin: 0.25rem 0 0.5rem; font-size: 0.88rem; color: var(--ink-soft); }
 .download a { font-family: var(--mono); font-size: 0.85rem; margin-right: 1rem; }
@@ -171,7 +174,9 @@ pre.source {
   /* The request table becomes one stacked block per request. */
   table.requests thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   table.requests, table.requests tbody, table.requests tr, table.requests td { display: block; width: 100%; }
-  table.requests tr { border-bottom: 1px solid var(--line); padding: 0.6rem 0.8rem; }
+  table.requests tr { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); padding: 0.6rem 0.8rem; }
+  table.requests td.subject { order: -1; min-width: 0; }
+  table.requests td.status-cell { min-width: 0; }
   table.requests td { border: 0; padding: 0.15rem 0; text-align: left; }
   table.requests td.num { text-align: left; }
   table.requests td[data-label]::before {
@@ -180,4 +185,10 @@ pre.source {
     text-transform: uppercase; color: var(--ink-soft);
   }
   table.requests td.subject { font-weight: 600; font-size: 0.95rem; }
+  /* The values table stacks too: name, value, then what it is. */
+  table.values thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.values, table.values tbody, table.values tr, table.values td { display: block; width: 100%; }
+  table.values tr { border-bottom: 1px solid var(--line); padding: 0.6rem 0.8rem; }
+  table.values td { border: 0; padding: 0.1rem 0; overflow-wrap: anywhere; }
+  table.values td:nth-child(2) { font-family: var(--mono); font-weight: 700; color: var(--teal-deep); }
 }
