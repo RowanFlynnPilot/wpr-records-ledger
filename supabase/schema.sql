@@ -62,7 +62,10 @@ create table requests (
   visibility        request_visibility not null default 'stats_only',
   complexity        request_complexity, -- null until classified; unclassified requests skip simple/complex metrics
   complexity_set_by text,                -- initials; must not be the filer
+  audit_round       text,                -- quarterly audit round, e.g. '2026-Q3'; null for reporting requests
   created_at        timestamptz not null default now(),
+  constraint audit_round_format
+    check (audit_round is null or audit_round ~ '^[0-9]{4}-Q[1-4]$'),
   constraint public_needs_subject
     check (visibility <> 'public'
            or (public_subject is not null and length(trim(public_subject)) > 0)),

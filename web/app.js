@@ -5,7 +5,26 @@ import {
 
 const main = document.querySelector("main");
 
-function fillLead(container, html, scorecard, meta) {
+// One round's tally, as counts: the round is small, so no shares.
+function roundSummary(round, rows) {
+  const n = (test) => rows.filter(test).length;
+  const parts = [`${fmtInt(n((r) => r.benchmark_result === true))} answered within 10 working days`,
+    `${fmtInt(n((r) => r.benchmark_result === false))} past 10`];
+  const unjudged = n((r) => r.benchmark_result === null && r.status !== "open");
+  const open = n((r) => r.status === "open");
+  if (unjudged) parts.push(`${fmtInt(unjudged)} not judged`);
+  if (open) parts.push(`${fmtInt(open)} still open`);
+  return `${round}: ${fmtInt(rows.length)} custodian${rows.length === 1 ? "" : "s"}; ${parts.join(", ")}`;
+}
+
+function auditRounds(requests) {
+  const rounds = {};
+  for (const r of requests) if (r.audit_round) (rounds[r.audit_round] ??= []).push(r);
+  for (const rows of Object.values(rounds)) rows.sort((a, b) => a.agency.localeCompare(b.agency));
+  return rounds;   // keys sort newest first below
+}
+
+function fillLead(container, html, scorecard, meta, rounds) {
   container.innerHTML = html;   // a fragment from this site's own leads/, never data
   const sum = (k) => scorecard.reduce((t, a) => t + a[k], 0);
   const values = {
@@ -15,6 +34,9 @@ function fillLead(container, html, scorecard, meta) {
     denials: fmtInt(sum("denials")),
     denials_without_reasons: fmtInt(sum("denials_without_reasons")),
     earliest: meta.earliest_filed_on ? fmtDate(meta.earliest_filed_on, { month: "long", year: "numeric" }) : "—",
+    audit_summary: latestRound(rounds)
+      ? `Latest round, ${roundSummary(latestRound(rounds), rounds[latestRound(rounds)])}.`
+      : "The first round's results will appear here once they are published.",
   };
   for (const slot of container.querySelectorAll("[data-fill]")) slot.textContent = values[slot.dataset.fill];
 }
@@ -74,6 +96,36 @@ function denialNote(r) {
   return el("div", { class: "denial" }, `${reason} ${notice}`);
 }
 
+const latestRound = (rounds) => Object.keys(rounds).sort().reverse()[0];
+
+function auditRow(r) {
+  const benchClass = r.benchmark_result === false ? "bench bench-missed" : "bench";
+  return el("tr", {},
+    el("td", { class: "subject" }, r.agency),
+    el("td", { class: "date", "data-label": "Filed" }, fmtDate(r.filed_on)),
+    el("td", { class: "status-cell", "data-label": "Status" }, el("span", { class: "status" }, STATUS_LABELS[r.status]), denialNote(r)),
+    el("td", { class: "num", "data-label": "Working days held" }, fmtInt(r.held_wd)),
+    el("td", { class: benchClass, "data-label": "10-day benchmark" }, benchmarkLabel(r.benchmark_result)),
+    feeCell(r.fees_quoted_cents, "Fee quoted"),
+    feeCell(r.fees_paid_cents, "Fee paid"));
+}
+
+function renderAudit(rounds) {
+  const names = Object.keys(rounds).sort().reverse();
+  if (!names.length) return;
+  document.getElementById("audit").hidden = false;
+  document.getElementById("audit-link").hidden = false;
+  const select = document.getElementById("round-filter");
+  for (const name of names) select.append(el("option", { value: name }, name));
+  const draw = () => {
+    const rows = rounds[select.value];
+    document.getElementById("audit-rows").replaceChildren(...rows.map(auditRow));
+    document.getElementById("round-summary").textContent = roundSummary(select.value, rows);
+  };
+  select.addEventListener("change", draw);
+  draw();
+}
+
 function requestRow(r) {
   const benchClass = r.benchmark_result === false ? "bench bench-missed" : "bench";
   return el("tr", {},
@@ -112,8 +164,10 @@ async function start() {
   document.getElementById("updated").textContent =
     `Updated ${fmtDateTime(meta.generated_at)} · open requests measured to ${fmtDate(meta.as_of)}`;
   for (const n of document.querySelectorAll(".min-n")) n.textContent = meta.law.MIN_N_FOR_RATES;
-  fillLead(document.getElementById("lead"), leadHtml, scorecard, meta);
+  const rounds = auditRounds(requests);
+  fillLead(document.getElementById("lead"), leadHtml, scorecard, meta, rounds);
   document.getElementById("cards").replaceChildren(...scorecard.map((a) => agencyCard(a, meta.law)));
+  renderAudit(rounds);
   renderRequests(requests);
 }
 

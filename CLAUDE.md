@@ -42,6 +42,7 @@ Use `127.0.0.1`, not `localhost`: on this machine `localhost` tries IPv6 first a
     - `public`: listed and counted. Requires a non-blank `public_subject`, which never names individuals.
     - `stats_only` (the default): counted once closed or 90 days old, never listed.
     - `private`: left out of the export.
+  - `audit_round` marks a quarterly audit request, as `YYYY-Qn` (e.g. `2026-Q3`); null for reporting requests. Its format is checked.
   - `complexity` is `simple`, `complex`, or null until classified.
     - `complexity_set_by` must differ from `filed_by`, compared case- and space-insensitively.
     - The rubric: simple means a limited number of easily identifiable records, which is DOJ's wording.
@@ -117,7 +118,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
 **Outputs:**
 The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_FIELDS`), and every row is checked against them before it is written.
 - `scorecard.json` and `.csv`: by agency, with exactly these fields: `agency`, `requests`, `open`, `simple_n`, `complex_n`, `unclassified_n`, `median_held_wd_simple`, `median_n`, `benchmark_met_share`, `benchmark_n`, `denials`, `denials_without_reasons`, `denials_missing_remedy_notice`, `no_records`, `location_fee_under_50`, `subject_notice_n`, `appeals`
-- `requests.json` and `.csv`: public requests only, newest first, with whitelisted fields `agency`, `filed_on`, `public_subject`, `status`, `held_wd`, `benchmark_result`, `fees_quoted_cents`, `fees_paid_cents`, `denial_reason`, `remedy_notice`. Never export `records_sought`, `note`, `document_url`, `filed_by`, `complexity_set_by` or `custodian_email`.
+- `requests.json` and `.csv`: public requests only, newest first, with whitelisted fields `agency`, `filed_on`, `public_subject`, `audit_round`, `status`, `held_wd`, `benchmark_result`, `fees_quoted_cents`, `fees_paid_cents`, `denial_reason`, `remedy_notice`. Never export `records_sought`, `note`, `document_url`, `filed_by`, `complexity_set_by` or `custodian_email`.
   - `status`: `law.status()`. `fees_quoted_cents`: the latest quote (a revised quote replaces the earlier one), or null. `fees_paid_cents`: the sum of `fee_paid` amounts (0 = waived), or null. `denial_reason` and `remedy_notice`: from the final response when it is a denial, else null.
 - `meta.json`: `generated_at`, `as_of` (the day open requests are measured to), `earliest_filed_on` (over counted requests only), and `law` (`law.published_values()`: the four constants and the holiday lists, by agency then year)
 - The site directory also carries `law.py` itself, which the methodology page prints.
@@ -132,6 +133,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
    - Set `law.HOLIDAYS` for 2024–26, one list per agency.
    - Backfill the counted requests.
 2. **Quarterly audit.** File the Q3 2026 round from the Closed Door Ledger's `audit.py` list, one request per custodian with identical wording.
+   - Log each with `audit_round` set. The site's audit section shows a round's **public** requests side by side, as counts (a round is too small for shares), so set the round's requests to `public` when it is published.
 3. **Export** (`export.py` and `tests/test_export.py`). Test fixtures must cover:
    - every `law.py` rule
    - a denial with no reason
@@ -147,6 +149,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
 - **When filing:** add one `requests` row.
   - Leave `visibility` as `stats_only` unless the story is published.
   - Someone other than the filer sets `complexity`.
+  - For a quarterly audit request, set `audit_round` (e.g. `2026-Q3`). Its `public_subject` is the audit's wording.
 - **When the agency replies:** add one `request_events` row dated the day the reply arrived.
   - For a fee quote: enter the total, and the split only if the agency gave one.
   - **Answering a quote or question:** always log your answer (`fee_paid`, `fee_paid` with 0 if waived, `fee_disputed`, or `clarification_sent`), or the export will stop.

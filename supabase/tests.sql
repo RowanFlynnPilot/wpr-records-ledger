@@ -80,6 +80,9 @@ insert into must_fail values
   ('complexity without complexity_set_by',
    $s$insert into requests (agency_id, filed_on, channel, filed_by, records_sought, complexity)
       select id, '2026-10-01', 'email', 'ZZTEST', 'x', 'complex' from agencies where name = 'ZZTEST Agency'$s$),
+  ('malformed audit_round',
+   $s$insert into requests (agency_id, filed_on, channel, filed_by, records_sought, audit_round)
+      select id, '2026-10-01', 'email', 'ZZTEST', 'x', 'Q3 2026' from agencies where name = 'ZZTEST Agency'$s$),
   ('fee_quoted without amount',
    $s$insert into request_events (request_id, event_type, event_on)
       select id, 'fee_quoted', '2026-10-06' from requests where records_sought = 'request A'$s$),

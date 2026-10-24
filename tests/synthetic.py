@@ -60,10 +60,11 @@ def ev(event_type: str, m: int, day: int, **fields) -> dict:
             "denial_reason": None, "remedy_notice": None, **fields}
 
 
-def req(key, agency, filed_on, channel, visibility, complexity, events, public_subject=None):
+def req(key, agency, filed_on, channel, visibility, complexity, events, public_subject=None,
+        audit_round=None):
     return {"key": key, "agency": agency, "filed_on": filed_on, "channel": channel,
             "visibility": visibility, "complexity": complexity, "events": events,
-            "public_subject": public_subject or f"SENTINEL subject {key}"}
+            "public_subject": public_subject or f"SENTINEL subject {key}", "audit_round": audit_round}
 
 
 # Held working days are in the comments, counted from the filing day up to,
@@ -71,7 +72,8 @@ def req(key, agency, filed_on, channel, visibility, complexity, events, public_s
 REQUESTS = [
     # 10/1-10/7: 5 days. Met.
     req("R1", CITY, d(10, 1), "email", "public", "simple",
-        [ev("acknowledged", 10, 2), ev("fulfilled", 10, 8)], "Police overtime records, 2025"),
+        [ev("acknowledged", 10, 2), ev("fulfilled", 10, 8)], "Police overtime records, 2025",
+        audit_round="2026-Q4"),
     # 10/1-10/29: 21 days. Missed.
     req("R2", CITY, d(10, 1), "email", "stats_only", "simple", [ev("fulfilled", 10, 30)]),
     # Clarification pause 10/20-10/21: 10/19, 10/22, 10/23 = 3. Met.
@@ -137,7 +139,8 @@ REQUESTS = [
          ev("fee_quoted", 11, 11, amount_cents=1000)]),
 
     # Below the small-sample floor: two simple requests.
-    req("S1", DISTRICT, d(10, 5), "email", "public", "simple", [ev("fulfilled", 10, 9)], "Bus contract bids"),
+    req("S1", DISTRICT, d(10, 5), "email", "public", "simple", [ev("fulfilled", 10, 9)], "Bus contract bids",
+        audit_round="2026-Q4"),
     # Fee pause 10/6-10/11: 10/5 + 10/12-23 (10) = 11. Missed.
     req("S2", DISTRICT, d(10, 5), "hand_delivered", "stats_only", "simple",
         [ev("fee_quoted", 10, 6, amount_cents=1200), ev("fee_paid", 10, 12, amount_cents=1200),
@@ -165,8 +168,10 @@ EXPECTED_SCORECARD = [
 ]
 
 
-def _listed(agency, filed_on, subject, status, held, met, quoted=None, paid=None, reason=None, notice=None):
-    return {"agency": agency, "filed_on": filed_on, "public_subject": subject, "status": status,
+def _listed(agency, filed_on, subject, status, held, met, quoted=None, paid=None, reason=None, notice=None,
+            audit=None):
+    return {"agency": agency, "filed_on": filed_on, "public_subject": subject, "audit_round": audit,
+            "status": status,
             "held_wd": held, "benchmark_result": met, "fees_quoted_cents": quoted,
             "fees_paid_cents": paid, "denial_reason": reason, "remedy_notice": notice}
 
@@ -181,8 +186,8 @@ EXPECTED_REQUESTS = [
             quoted=3250, paid=3250),
     _listed(CITY, "2026-10-19", "Snowplow GPS logs, January 2026", "fulfilled", 3, True),
     _listed(CITY, "2026-10-05", "Parking ticket totals by month", "withdrawn", 2, None),
-    _listed(DISTRICT, "2026-10-05", "Bus contract bids", "fulfilled", 4, True),
-    _listed(CITY, "2026-10-01", "Police overtime records, 2025", "fulfilled", 5, True),
+    _listed(DISTRICT, "2026-10-05", "Bus contract bids", "fulfilled", 4, True, audit="2026-Q4"),
+    _listed(CITY, "2026-10-01", "Police overtime records, 2025", "fulfilled", 5, True, audit="2026-Q4"),
     _listed(CITY, "2026-09-14", "Fire department response times, 2024–2026", "fulfilled", 51, None,
             quoted=9000, paid=9000),
 ]
@@ -197,7 +202,7 @@ def as_fetched(requests: list[dict] = REQUESTS) -> list[dict]:
     agency_ids = {name: i + 1 for i, name in enumerate(names)}
     return [{"id": i + 1, "agency_id": agency_ids[r["agency"]], "agency": r["agency"],
              "filed_on": r["filed_on"], "channel": r["channel"], "public_subject": r["public_subject"],
-             "visibility": r["visibility"], "complexity": r["complexity"],
+             "visibility": r["visibility"], "complexity": r["complexity"], "audit_round": r["audit_round"],
              "events": [dict(e) for e in r["events"]]}
             for i, r in enumerate(requests)]
 
@@ -213,11 +218,12 @@ def seed(conn) -> None:
             classified = r["complexity"] is not None
             request_id = cur.execute(
                 """insert into requests (agency_id, filed_on, channel, filed_by, records_sought,
-                                         public_subject, visibility, complexity, complexity_set_by)
-                   values (%s, %s, %s, %s, %s, %s, %s, %s, %s) returning id""",
+                                         public_subject, visibility, complexity, complexity_set_by, audit_round)
+                   values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) returning id""",
                 (ids[r["agency"]], r["filed_on"], r["channel"], "SENTINEL-filer",
                  f"SENTINEL records_sought {r['key']}", r["public_subject"], r["visibility"],
-                 r["complexity"], "SENTINEL-reviewer" if classified else None)).fetchone()[0]
+                 r["complexity"], "SENTINEL-reviewer" if classified else None,
+                 r["audit_round"])).fetchone()[0]
             for e in r["events"]:
                 cur.execute(
                     """insert into request_events (request_id, event_type, event_on, amount_cents,

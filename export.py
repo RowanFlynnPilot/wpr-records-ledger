@@ -40,7 +40,7 @@ SCORECARD_FIELDS = (
     "location_fee_under_50", "subject_notice_n", "appeals",
 )
 REQUEST_FIELDS = (
-    "agency", "filed_on", "public_subject", "status", "held_wd", "benchmark_result",
+    "agency", "filed_on", "public_subject", "audit_round", "status", "held_wd", "benchmark_result",
     "fees_quoted_cents", "fees_paid_cents", "denial_reason", "remedy_notice",
 )
 META_FIELDS = ("generated_at", "as_of", "earliest_filed_on", "law")
@@ -51,7 +51,7 @@ META_FIELDS = ("generated_at", "as_of", "earliest_filed_on", "law")
 AGENCIES_SQL = "select id, name from agencies"
 REQUESTS_SQL = """
     select id, agency_id, filed_on, channel::text as channel, public_subject,
-           visibility::text as visibility, complexity::text as complexity
+           visibility::text as visibility, complexity::text as complexity, audit_round
     from requests
     where visibility <> 'private'
     order by id"""
@@ -180,6 +180,7 @@ def request_row(d: dict) -> dict:
         "agency": d["agency"],
         "filed_on": d["filed_on"].isoformat(),
         "public_subject": d["public_subject"],
+        "audit_round": d["audit_round"],
         "status": d["status"],
         "held_wd": d["held_wd"],
         "benchmark_result": d["benchmark_result"],

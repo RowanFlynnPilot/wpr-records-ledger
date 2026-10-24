@@ -30,6 +30,7 @@
         <p class="updated" id="updated"></p>
         <nav class="page-nav" aria-label="On this page">
           <a href="#agencies">Agencies</a>
+          <a href="#audit" id="audit-link" hidden>Quarterly audit</a>
           <a href="#requests">Requests</a>
           <a href="#downloads">Download the data</a>
           <a href="methodology.html">Methodology</a>
@@ -47,6 +48,38 @@
           rests on is always shown.
         </p>
         <div class="cards" id="cards"></div>
+      </section>
+
+      <!-- Shown once a published round exists: public requests with an audit_round. -->
+      <section id="audit" aria-labelledby="audit-h" hidden>
+        <h2 id="audit-h">Quarterly audit</h2>
+        <p class="section-dek">
+          Each quarter, WPR files the same simple request, in identical wording, with every records
+          custodian the Closed Door Ledger covers, so the answers can be compared directly. A round
+          appears here once it is published.
+        </p>
+        <div class="toolbar">
+          <label for="round-filter">Round</label>
+          <select id="round-filter"></select>
+          <span class="shown" id="round-summary" aria-live="polite"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="requests audit">
+            <caption class="visually-hidden">Audit requests in the selected round, by agency</caption>
+            <thead>
+              <tr>
+                <th scope="col">Agency</th>
+                <th scope="col">Filed</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="num">Working days held</th>
+                <th scope="col">10-day benchmark</th>
+                <th scope="col" class="num">Fee quoted</th>
+                <th scope="col" class="num">Fee paid</th>
+              </tr>
+            </thead>
+            <tbody id="audit-rows"></tbody>
+          </table>
+        </div>
       </section>
 
       <section id="requests" aria-labelledby="requests-h">
@@ -95,7 +128,7 @@
           </div>
           <div class="download">
             <h3>Listed requests</h3>
-            <p>One row per listed request: agency, filing date, subject, status, days held, benchmark, fees, any denial's stated reason.</p>
+            <p>One row per listed request: agency, filing date, subject, audit round, status, days held, benchmark, fees, any denial's stated reason.</p>
             <a href="data/requests.csv" download>requests.csv</a><a href="data/requests.json">requests.json</a>
           </div>
           <div class="download">
