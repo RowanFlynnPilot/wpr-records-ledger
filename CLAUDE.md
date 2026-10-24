@@ -14,6 +14,7 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
   - `--out` must not exist; the export writes a fresh directory. `--dry-run` reads, validates and computes but writes nothing. `--as-of` defaults to today in America/Chicago.
   - **Actions logs are public.** The export prints only published counts (a count of all requests read would reveal a fresh embargoed one). A validation failure prints only how many requests failed: an id (which also counts private requests) or a rule ("denied follows an unanswered fee_quoted") could reveal a fresh embargoed request. To see which, run `python export.py --dry-run --name-requests` locally with the `ledger_export` URL.
   - `ref` numbering can shift when a same-day request at that agency is listed or unlisted, so join `requests` and `request_events` from the same export.
+  - **Quarterly frozen copies.** After the export, a separate `snapshot` job (the only one with `contents: write`) publishes the exported CSVs and JSON as the GitHub Release `data-YYYY-Qn` for the quarter that last ended, if it doesn't exist yet: the first successful export after a quarter ends freezes it, so a figure cited in a story can be checked later. A release is not a commit; it is permanent public data, so correcting a request after its quarter is frozen means editing or deleting that release by hand.
   - GitHub disables a public repo's scheduled workflows after 60 days with no repository activity, and this repo commits no data. Watch for GitHub's warning email and re-enable the workflow, or push a commit, before then.
 - **Licensing.** The repo is public. Code is MIT-licensed and published data is CC BY 4.0.
 
@@ -27,6 +28,7 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
 - `web/`: static HTML/CSS/JS, no build step
 - `backfill.py` and `tests/test_backfill.py`: loads past requests from two CSVs (templates and a column guide in `backfill_templates/`). Local only, as the owner (`LEDGER_WRITE_DB_URL`).
 - `staff_report.py` and `tests/test_staff_report.py`: the staff's private to-do list (see Logging). Refuses to run in Actions.
+- `snapshot.py` and `tests/test_snapshot.py`: names the frozen data release (`data-YYYY-Qn`) for the quarter that last ended.
 - `.github/workflows/test.yml`: the whole suite on Python 3.12 with a Postgres 16 service on every push; first passed Oct 24, 2026 (56 tests, none skipped).
 
 **On branch `workflow`, not merged:** `.github/workflows/export.yml`. It runs the tests (the e2e test against a Postgres 16 service container), then the export, then deploys to Pages.
