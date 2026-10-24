@@ -196,15 +196,33 @@ begin
       using errcode = 'check_violation';
   end if;
   if new.visibility = 'public' and new.public_ref is null then
-    select new.filed_on::text || '-' || trim(both '-' from regexp_replace(lower(a.name), '[^a-z0-9]+', '-', 'g'))
+    select to_char(new.filed_on, 'YYYY-MM-DD') || '-'
+             || trim(both '-' from regexp_replace(lower(a.name), '[^a-z0-9]+', '-', 'g'))
       into stem from agencies a where a.id = new.agency_id;
-    new.public_ref := stem || '-' || (select count(*) + 1 from requests where public_ref ~ ('^' || stem || '-[0-9]+$'));
+    new.public_ref := stem || '-' || (
+      select coalesce(max(substring(public_ref from '-([0-9]+)$')::int), 0) + 1
+      from requests where public_ref ~ ('^' || stem || '-[0-9]+$'));
   end if;
   return new;
 end $$;
 
 create trigger requests_public_ref before insert or update on requests
   for each row execute function assign_public_ref();
+
+-- A request that has ever been public can't be deleted: its ref may be cited, and
+-- a freed number could be handed to another request. To take one down, set it private.
+create function keep_published_requests() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if old.public_ref is not null then
+    raise exception 'request % was public (ref %); set visibility to private instead of deleting it',
+      old.id, old.public_ref using errcode = 'check_violation';
+  end if;
+  return old;
+end $$;
+
+create trigger requests_keep_published before delete on requests
+  for each row execute function keep_published_requests();
 
 alter table agencies       enable row level security;
 alter table requests       enable row level security;

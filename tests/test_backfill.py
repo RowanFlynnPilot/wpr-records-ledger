@@ -64,6 +64,22 @@ def test_a_bad_file_names_every_bad_cell(tmp_path):
     assert "line 4, remedy_notice" in message and "yes or no" in message
 
 
+def test_ragged_rows_and_loose_dollars_are_refused(tmp_path):
+    unquoted = ["W-1,fulfilled,2026-10-08,,,,,,,see letter, page 2,https://drive.example/x"]
+    with pytest.raises(backfill.BackfillError, match="line 2: more cells than the header"):
+        parsed(tmp_path, events=unquoted)
+    with pytest.raises(backfill.BackfillError, match="'1,5' is not a dollar amount"):
+        parsed(tmp_path, events=['W-1,fee_quoted,2026-10-02,"1,5",,,,,,,'])
+    assert backfill._cents("$1,500.25") == 150025
+    with pytest.raises(backfill.BackfillError, match="line 2: fewer cells"):
+        parsed(tmp_path, events=["W-1,fulfilled,2026-10-08"])
+
+
+def test_the_same_request_twice_in_one_file(tmp_path):
+    with pytest.raises(backfill.BackfillError, match="appears twice: W-1, W-9"):
+        parsed(tmp_path, requests=GOOD_REQUESTS + [GOOD_REQUESTS[0].replace("W-1", "W-9", 1)], events=[])
+
+
 def test_header_must_match_the_template(tmp_path):
     r, e = write(tmp_path, GOOD_REQUESTS, GOOD_EVENTS)
     e.write_text("request,event_type,event_on\n", encoding="utf-8")

@@ -9,6 +9,10 @@
     <link rel="preload" href="fonts/public-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="fonts.css" />
     <link rel="stylesheet" href="styles.css" />
+    <!-- Content below the masthead is hidden until the data renders (no layout shift). If
+         scripts are off, or one fails to load or throws, show the page anyway. -->
+    <noscript><style>main[data-loading] > * { visibility: visible !important; }</style></noscript>
+    <script>addEventListener("error", () => document.querySelector("main")?.removeAttribute("data-loading"), true);</script>
   </head>
   <body class="embed">
     <!-- For iframes in WPR articles: embed.html?agency=<name exactly as on the ledger>.

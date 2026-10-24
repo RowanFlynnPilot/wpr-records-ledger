@@ -140,6 +140,8 @@ thead th.num { white-space: normal; }
 #audit-trend { margin-top: 1.75rem; }
 #audit-trend h3 { margin-bottom: 0.35rem; }
 table.trend tbody th { font-weight: 500; text-align: left; }
+.trend-entry { display: block; }
+.trend-entry + .trend-entry { margin-top: 0.4rem; }
 .trend-days { display: block; font-weight: 700; }
 .trend-note { display: block; font-family: var(--body); font-size: 0.75rem; color: var(--ink-soft); }
 .bench-missed .trend-note { color: var(--rust-text); }

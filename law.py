@@ -40,8 +40,17 @@ def load_holidays(path: Path) -> dict[str, dict[int, frozenset[date]]]:
     errors = []
     for agency, years in raw.items():
         holidays[agency] = {}
+        if not isinstance(years, dict):
+            errors.append(f"{agency!r} is not an agency table (write it as [\"Agency name\"])")
+            continue
         for year_key, days in years.items():
+            if not (len(year_key) == 4 and year_key.isdigit()):
+                errors.append(f"{agency}: {year_key!r} is not a year")
+                continue
             year = int(year_key)
+            if not isinstance(days, list) or not days:
+                errors.append(f"{agency} {year}: list the year's dates, or leave the year out until they're set")
+                continue
             for d in days:
                 if type(d) is not date:
                     errors.append(f"{agency} {year}: {d!r} is not a date (write it as {year}-MM-DD)")

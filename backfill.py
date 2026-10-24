@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -28,6 +29,7 @@ import psycopg
 import law
 
 NEWSROOM_TZ = ZoneInfo("America/Chicago")
+DOLLARS = re.compile(r"\$?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?")   # commas only as thousands separators
 
 REQUEST_COLUMNS = ("key", "agency", "filed_on", "channel", "filed_by", "records_sought", "public_subject",
                    "visibility", "complexity", "complexity_set_by", "audit_round")
@@ -44,6 +46,8 @@ class BackfillError(RuntimeError):
 
 
 def _cents(text: str) -> int:
+    if not DOLLARS.fullmatch(text):
+        raise ValueError(f"{text!r} is not a dollar amount")
     try:
         cents = Decimal(text.replace("$", "").replace(",", "")) * 100
     except InvalidOperation:
@@ -83,6 +87,10 @@ def read_rows(path: Path, columns: tuple[str, ...]) -> list[dict]:
             raise BackfillError(f"{path.name}: the header must be exactly {','.join(columns)}")
         rows, errors = [], []
         for line, raw in enumerate(reader, start=2):
+            if None in raw or None in raw.values():
+                errors.append(f"{path.name} line {line}: {'more' if None in raw else 'fewer'} cells than the "
+                              f"header (an unquoted comma? quote any cell that contains one)")
+                continue
             row = {}
             for column in columns:
                 try:
@@ -102,6 +110,10 @@ def attach(requests: list[dict], events: list[dict]) -> list[dict]:
         if r["key"] in by_key:
             raise BackfillError(f"request key {r['key']!r} appears twice")
         by_key[r["key"]] = {**r, "events": []}
+    seen = [(r["agency"], r["filed_on"], r["records_sought"]) for r in requests]
+    twice = sorted({r["key"] for r in requests if seen.count((r["agency"], r["filed_on"], r["records_sought"])) > 1})
+    if twice:
+        raise BackfillError(f"the same request (agency, filed_on, records_sought) appears twice: {', '.join(twice)}")
     unknown = sorted({e["request_key"] for e in events} - set(by_key))
     if unknown:
         raise BackfillError(f"events name request keys not in the requests file: {', '.join(unknown)}")

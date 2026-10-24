@@ -49,6 +49,11 @@ insert into requests (agency_id, filed_on, channel, filed_by, records_sought)
 select id, '2026-10-01', 'email', 'ZZTEST', v.r
 from agencies, (values ('request C'), ('request D')) as v(r) where name = 'ZZTEST Agency';
 
+-- E: public, no events (so only the delete guard, not a foreign key, can stop deleting it)
+insert into requests (agency_id, filed_on, channel, filed_by, records_sought, public_subject, visibility)
+select id, '2026-10-02', 'email', 'ZZTEST', 'request E', 'Request E subject', 'public'
+from agencies where name = 'ZZTEST Agency';
+
 insert into request_events (request_id, event_type, event_on)
 select id, 'withdrawn', '2026-10-05' from requests where records_sought = 'request D' and filed_by = 'ZZTEST';
 
@@ -74,6 +79,18 @@ do $$ begin
      or (select public_ref from requests where records_sought = 'request A' and filed_by = 'ZZTEST')
        is distinct from '2026-10-01-zztest-agency-1'
      or (select public_ref from requests where records_sought = 'request C' and filed_by = 'ZZTEST') is not null then
+    raise exception 'TEST FAILED: public_ref not assigned once, on first publication';
+  end if;
+end $$;
+
+-- The ref's date is ISO whatever the session's DateStyle.
+set local datestyle = 'SQL, MDY';
+update requests set visibility = 'public', public_subject = 'Request C subject'
+where records_sought = 'request C' and filed_by = 'ZZTEST';
+reset datestyle;
+do $$ begin
+  if (select public_ref from requests where records_sought = 'request C' and filed_by = 'ZZTEST')
+       is distinct from '2026-10-01-zztest-agency-2' then
     raise exception 'TEST FAILED: public_ref not assigned once, on first publication';
   end if;
 end $$;
@@ -157,6 +174,8 @@ insert into must_fail values
    $s$update requests set public_ref = '2026-10-01-zztest-agency-9' where records_sought = 'request C'$s$),
   ('public_ref changed',
    $s$update requests set public_ref = null where records_sought = 'request B' and filed_by = 'ZZTEST'$s$),
+  ('deleting a request that was public',
+   $s$delete from requests where records_sought = 'request E' and filed_by = 'ZZTEST'$s$),
   ('filed_on moved after logged events',
    $s$update requests set filed_on = '2026-10-03' where records_sought = 'request A' and filed_by = 'ZZTEST'$s$);
 
@@ -206,7 +225,7 @@ end $$;
 -- ── ledger_export: reads everything, writes nothing ─────────────────────────
 set local role ledger_export;
 do $$ begin
-  if (select count(*) from requests where filed_by = 'ZZTEST') <> 4
+  if (select count(*) from requests where filed_by = 'ZZTEST') <> 5
      or (select count(*) from request_events e join requests r on r.id = e.request_id where r.filed_by = 'ZZTEST') <> 15 then
     raise exception 'TEST FAILED: ledger_export cannot read the test rows';
   end if;

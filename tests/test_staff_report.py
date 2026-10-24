@@ -20,9 +20,13 @@ EXTRA = [
     # would stop the export
     synthetic.req("X2", synthetic.CITY, date(2026, 10, 1), "email", "stats_only", "simple",
                   [ev("fee_quoted", 10, 2, amount_cents=100), ev("fulfilled", 10, 5)]),
-    # open simple request at an agency with no holiday list
-    synthetic.req("X3", synthetic.VILLAGE, date(2027, 2, 1), "email", "private", "simple",
+    # at an agency with no holiday list: an open public request, and a closed complex one counted at 90+ days
+    synthetic.req("X3", synthetic.VILLAGE, date(2027, 2, 1), "email", "public", "simple",
                   [ev("acknowledged", 2, 1, event_on=date(2027, 2, 2))]),
+    synthetic.req("X4", synthetic.VILLAGE, date(2026, 7, 1), "email", "stats_only", "complex",
+                  [ev("fulfilled", 7, 9)]),
+    # private at the same agency: never measured, so no list needed
+    synthetic.req("X5", synthetic.VILLAGE, date(2026, 7, 1), "email", "private", "simple", []),
 ]
 
 
@@ -46,11 +50,11 @@ def test_findings_on_the_synthetic_log():
     found = staff_report.findings(staff_rows(synthetic.REQUESTS + EXTRA), AS_OF)
     assert keys(found["invalid"]) == ["X2"]
     assert "follows an unanswered fee_quoted" in found["invalid"][0]
-    assert keys(found["no_holidays"]) == ["X3"]
+    assert keys(found["no_holidays"]) == ["V2", "X3", "X4"]         # V2 enters the figures within 14 days
     assert keys(found["waiting"]) == ["X1"] and "unanswered: fee_quoted" in found["waiting"][0]
     # R11 80, R12 57, R13 123 and S4 61 working days held; the village's V2 is unclassified, not simple
     assert keys(found["late"]) == ["R11", "R12", "R13", "S4"]
-    assert keys(found["quiet"]) == ["R11", "R12", "R13", "S4", "V2"]   # X1 and X3 logged within 30 days
+    assert keys(found["quiet"]) == ["R11", "R12", "R13", "S4", "V2", "X5"]   # X1 and X3 logged within 30 days
     assert keys(found["unclassified"]) == ["R15", "V2"]
     assert keys(found["leaving_embargo"]) == ["R12", "V2"]              # 84 and 81 days old
     assert "enters the figures 2027-03-07" in next(x for x in found["leaving_embargo"] if "R12" in x)

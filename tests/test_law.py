@@ -275,9 +275,8 @@ def write_holidays(tmp_path, text):
 
 
 def test_load_holidays(tmp_path):
-    path = write_holidays(tmp_path, '["City of Example"]\n2026 = [2026-11-26, 2026-11-27]\n2027 = []\n')
-    assert law.load_holidays(path) == {"City of Example": {
-        2026: frozenset({date(2026, 11, 26), date(2026, 11, 27)}), 2027: frozenset()}}
+    path = write_holidays(tmp_path, '["City of Example"]\n2026 = [2026-11-26, 2026-11-27]\n')
+    assert law.load_holidays(path) == {"City of Example": {2026: frozenset({date(2026, 11, 26), date(2026, 11, 27)})}}
     assert law.load_holidays(write_holidays(tmp_path, "# nothing set yet\n")) == {}
 
 
@@ -291,6 +290,10 @@ def test_holiday_file_refuses_what_cannot_be_a_closure(tmp_path):
     assert "2025-12-25 is listed under the wrong year" in message
     assert "'2026-12-24' is not a date" in message
     assert "a date is listed twice" in message
+    for bad, says in [('["A"]\n2027 = []\n', "leave the year out"), ('["A"]\n"02026" = [2026-11-26]\n', "not a year"),
+                      ('["A"]\nfy2026 = [2026-11-26]\n', "not a year"), ('stray = 1\n', "not an agency table")]:
+        with pytest.raises(law.HolidayFileError, match=says):
+            law.load_holidays(write_holidays(tmp_path, bad))
 
 
 def test_the_repo_holiday_file_loads():

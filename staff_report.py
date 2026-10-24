@@ -35,7 +35,8 @@ EVENTS_SQL = """
 
 SECTIONS = (
     ("invalid", "Would stop the export (fix these first)"),
-    ("no_holidays", "Can't be measured: the agency has no holiday list for a year it spans"),
+    ("no_holidays", "Will stop the export: counted (or about to be) at an agency with no holiday list for a "
+                    "year it spans"),
     ("waiting", "Waiting on WPR: answer the agency"),
     ("late", "Open simple requests past the 10-working-day benchmark"),
     ("quiet", f"Open, with nothing logged in {QUIET_DAYS} days: follow up"),
@@ -75,10 +76,16 @@ def findings(requests: list[dict], as_of: date) -> dict[str, list[str]]:
         if r["complexity"] is None:
             found["unclassified"].append(_label(r))
         age = (as_of - r["filed_on"]).days
-        if r["visibility"] == "stats_only" and law.STATS_ONLY_EMBARGO_DAYS - EMBARGO_NOTICE_DAYS <= age \
-                < law.STATS_ONLY_EMBARGO_DAYS:
+        entering = r["visibility"] == "stats_only" and \
+            law.STATS_ONLY_EMBARGO_DAYS - EMBARGO_NOTICE_DAYS <= age < law.STATS_ONLY_EMBARGO_DAYS
+        if entering:
             enters = r["filed_on"] + timedelta(days=law.STATS_ONLY_EMBARGO_DAYS)
             found["leaving_embargo"].append(f"{_label(r)}\n      enters the figures {enters}")
+        # The export measures every counted request, open or closed, of any complexity.
+        counted = law.counts_in_metrics(r["visibility"], r["filed_on"], events, as_of)
+        measurable = _measurable(r, as_of)
+        if (counted or entering) and not measurable:
+            found["no_holidays"].append(f"{_label(r)}\n      {'counted now' if counted else 'enters the figures soon'}")
         if not is_open:
             continue
         waiting = law.waiting_on_wpr(events)
@@ -87,10 +94,8 @@ def findings(requests: list[dict], as_of: date) -> dict[str, list[str]]:
         last = max([r["filed_on"]] + [e["event_on"] for e in events])
         if (as_of - last).days >= QUIET_DAYS:
             found["quiet"].append(f"{_label(r)}\n      last logged {last}")
-        if r["complexity"] == "simple":
-            if not _measurable(r, as_of):
-                found["no_holidays"].append(_label(r))
-            elif law.benchmark_result(r["agency"], "simple", r["filed_on"], events, as_of) is False:
+        if r["complexity"] == "simple" and measurable:
+            if law.benchmark_result(r["agency"], "simple", r["filed_on"], events, as_of) is False:
                 held = law.held_working_days(r["agency"], r["filed_on"], events, as_of)
                 found["late"].append(f"{_label(r)}\n      {held} working days held")
     return found

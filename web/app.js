@@ -94,15 +94,17 @@ function renderTrend(rounds) {
   document.getElementById("audit-trend").hidden = false;
   document.getElementById("trend-head").append(...names.map((n) => el("th", { scope: "col", class: "num" }, n)));
   const agencies = [...new Set(names.flatMap((n) => rounds[n].map((r) => r.agency)))].sort();
-  const cell = (r) => {
-    if (!r) return el("td", { class: "num trend-gap" }, "—");
-    const label = r.status === "open" ? "open" : benchmarkLabel(r.benchmark_result).toLowerCase();
-    return el("td", { class: r.benchmark_result === false ? "num bench-missed" : "num" },
-      el("span", { class: "trend-days" }, `${fmtInt(r.held_wd)} days`), el("span", { class: "trend-note" }, label));
+  const cell = (rows) => {
+    if (!rows.length) return el("td", { class: "num trend-gap" }, "—");
+    return el("td", { class: "num" }, rows.map((r) => {
+      const label = r.status === "open" ? "open" : benchmarkLabel(r.benchmark_result).toLowerCase();
+      return el("span", { class: r.benchmark_result === false ? "trend-entry bench-missed" : "trend-entry" },
+        el("span", { class: "trend-days" }, `${fmtInt(r.held_wd)} days`), el("span", { class: "trend-note" }, label));
+    }));
   };
   document.getElementById("trend-rows").replaceChildren(...agencies.map((agency) => el("tr", {},
     el("th", { scope: "row" }, agency),
-    names.map((n) => cell(rounds[n].find((r) => r.agency === agency))))));
+    names.map((n) => cell(rounds[n].filter((r) => r.agency === agency))))));
 }
 
 function timeline(events) {
