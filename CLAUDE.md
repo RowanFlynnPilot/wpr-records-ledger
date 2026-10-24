@@ -10,19 +10,28 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
 - **Export.** `export.py` runs nightly in GitHub Actions (`cron: "37 10 * * *"`, 10:37 UTC).
   - It connects as the read-only role `ledger_export` through the Supabase **session pooler** (port 5432), using the `SUPABASE_DB_URL` secret. Supabase pooler user names take the form `ledger_export.<project-ref>`; confirm the role can connect before relying on it.
   - It validates the data, computes the metrics and deploys the site plus JSON and CSV to GitHub Pages **as an Actions artifact**. Data is never committed.
+  - It refuses to run unless `current_user` is `ledger_export`, reads in one read-only repeatable-read transaction, and never selects a private request or a never-exported column.
+  - `--out` must not exist; the export writes a fresh directory. `--dry-run` reads, validates and computes but writes nothing. `--as-of` defaults to today in America/Chicago.
+  - **Actions logs are public.** The export prints only published counts (a count of all requests read would reveal a fresh embargoed one). A validation failure names the request id and the broken rule, never the agency or subject.
 - **Licensing.** The repo is public. Code is MIT-licensed and published data is CC BY 4.0.
 
 **Built and tested (`python -m pytest tests`, plus `supabase/tests.sql`):**
 - `supabase/schema.sql`: tables, enums, check constraints, RLS, and the `ledger_export` role
 - `supabase/tests.sql`: one transaction that rolls back, touching only rows marked `ZZTEST`
 - `law.py`: every statutory value and clock rule. The methodology page prints it.
-- `tests/test_law.py`
+- `export.py`: DB → `law.validate` → metrics → site artifact. It decides only which fields leave the database; every rule comes from `law.py`.
+- `tests/test_law.py`, `tests/test_export.py` (no database), `tests/test_export_e2e.py` (local Postgres)
+- `tests/synthetic.py`: the synthetic agencies, requests and events, with every expected value worked out by hand. Never-published columns carry `SENTINEL`, and the e2e test searches every output file for it.
+- `web/`: static HTML/CSS/JS, no build step
 
-**To build:**
-- `export.py`: DB → `law.validate` → metrics → site artifact
-- `tests/test_export.py`
-- `web/`
-- `.github/workflows/export.yml`
+**On branch `workflow`, not merged:** `.github/workflows/export.yml`. It runs the tests (the e2e test against a Postgres 16 service container), then the export, then deploys to Pages.
+
+**Local database for tests.** Postgres 16 in Docker. `tests/localdb.py` creates a throwaway database with Supabase-style roles (`tests/supabase_roles.sql`: anon, authenticated, service_role, plus Supabase's default grants, so RLS is what's tested), applies `schema.sql`, and afterwards drops the database and the cluster-wide `ledger_export` role. It refuses any host but localhost.
+```
+docker run -d --name wpr-records-ledger-pg -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:54330:5432 postgres:16
+$env:LEDGER_TEST_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54330/postgres"; python -m pytest tests
+```
+Use `127.0.0.1`, not `localhost`: on this machine `localhost` tries IPv6 first and psycopg stalls. Without `LEDGER_TEST_DB_URL` the e2e tests skip, and pytest prints why.
 
 ## Data model (see `supabase/schema.sql`)
 - **agencies:** one row per records custodian.
@@ -40,7 +49,7 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
   - **WPR events:** `clarification_sent`, `fee_paid` (0 means waived), `fee_disputed`, `withdrawn`, and the remedies `appealed_da`, `appealed_ag`, `mandamus_filed`.
 - **Check constraints:**
   - Fees require `amount_cents`. A quote's itemization is optional, all-or-none, and must add up to the total.
-  - Denials require `remedy_notice`. `denial_reason` is nullable, and null means no reason was stated.
+  - Denials require `remedy_notice`. `denial_reason` is nullable, and null means no reason was stated. A blank `denial_reason` is rejected, so "no reason" is always null.
 - **RLS.** anon and authenticated see and write nothing. `ledger_export` can only read.
 
 **Tests.** `supabase/tests.sql` passed on Postgres 16 with Supabase-style roles and real rows present (Oct 23, 2026). It was mutation-checked: dropping the complexity rule, letting the export role insert, or removing its read policy each make it fail.
@@ -73,27 +82,39 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
   - a s. 19.356 notice sent after day 10: missed
   - a s. 19.356 notice sent within 10 days: not judged, since release is barred by statute
   - withdrawn or still open inside 10 days: not judged
-- **Validation.** `validate()` raises when:
-  - an event is dated before filing
+- **Same-day order.** Events on one day sort in the order they must have happened, whatever order staff logged them: the agency's other events first, then WPR's answers, then the final event, then remedies.
+- **Validation.** `validate(filed_on, events, as_of)` raises when:
+  - an event is dated before filing, or the request or any event is dated after the export day
   - anything but a remedy follows `withdrawn`
+  - a second terminal event follows the first (a request has one final event; log a later batch as `records_released`)
   - an agency's final response follows an unanswered fee quote or clarification request (log `fee_paid`, `fee_disputed` or `clarification_sent` first)
+- **Final event and status.** `final_event()` is the first terminal event; `status()` is its type, or `open`.
+- **Median membership.** `counts_in_median()`: simple requests the agency answered (not withdrawn, not open) that `benchmark_result` judges. An early s. 19.356 notice keeps a request out of both the median and the share.
+- **Denial checks.** `denial_lacks_reasons()` and `denial_lacks_remedy_notice()` apply to the final response of **written** requests only: s. 19.35(4)(b) requires reasons and the remedy notice for written requests, and an oral request's denial owes written reasons only on demand.
+- **Location fee.** `location_fee_below_threshold()`: an itemized quote with 0 < `location_cents` < `LOCATION_FEE_THRESHOLD_CENTS`.
+- **Floor.** `shows_rate(n)`: n >= `MIN_N_FOR_RATES`.
+- **Holidays.** Each year needs `HOLIDAYS[year]` before its first export day: **set 2027 before Jan. 1, 2027**, or the nightly export stops.
 - **Embargo.** `counts_in_metrics()` holds `stats_only` requests out until they are closed or 90 days old, so a nightly count can't reveal a fresh request tied to an unpublished story.
 
 ## Metrics (`export.py`)
-**Per agency**, over requests where `counts_in_metrics()` is true:
+**Per agency**, over requests where `counts_in_metrics()` is true. An agency with no counted request is left out, so adding an agency for a fresh request reveals nothing. Rows are alphabetical.
 - counts: `requests`, `open`, `simple_n`, `complex_n`, `unclassified_n`
-- `median_held_wd_simple`: closed simple requests only
-- `benchmark_met_share`: over the simple requests `benchmark_result` judges, with that n shown
-- `denials` (`denied` plus `partially_denied`), `denials_without_reasons`, `denials_missing_remedy_notice` (non-`oral` requests only), `no_records`
-- `location_fee_under_50`: itemized quotes only, where 0 < `location_cents` < 5000
-- `subject_notice_n`, `appeals` (the remedy events)
+- `median_held_wd_simple`: over requests where `counts_in_median()` is true, with that n as `median_n`
+- `benchmark_met_share`: met / judged over the simple requests `benchmark_result` judges, rounded to 3 places, with that n as `benchmark_n`
+- `denials`: requests whose final response is `denied` or `partially_denied`. `denials_without_reasons` and `denials_missing_remedy_notice`: of those, written requests only (`law.denial_lacks_*`). `no_records`: final response `no_records`.
+- `location_fee_under_50`: itemized quote events where `law.location_fee_below_threshold()`
+- `subject_notice_n`: requests with a `subject_notice_sent` event. `appeals`: remedy events.
 
 **Small samples:** each median or share appears only when **its own** n (closed simple requests for the median, judged requests for the share) is at least `MIN_N_FOR_RATES` (5). n always shows. **Nothing is ranked in v1.**
 
 **Outputs:**
-- `scorecard.json` and `.csv`: by agency
-- `requests.json` and `.csv`: public requests only, with whitelisted fields `agency`, `filed_on`, `public_subject`, `status`, `held_wd`, `benchmark_result`, `fees_quoted_cents`, `fees_paid_cents`, `denial_reason`, `remedy_notice`. Never export `records_sought`, `note`, `document_url`, `filed_by` or `complexity_set_by`.
-- `meta.json`: generated time, earliest `filed_on`, the `law.py` values and the holiday list
+The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_FIELDS`), and every row is checked against them before it is written.
+- `scorecard.json` and `.csv`: by agency, with exactly these fields: `agency`, `requests`, `open`, `simple_n`, `complex_n`, `unclassified_n`, `median_held_wd_simple`, `median_n`, `benchmark_met_share`, `benchmark_n`, `denials`, `denials_without_reasons`, `denials_missing_remedy_notice`, `no_records`, `location_fee_under_50`, `subject_notice_n`, `appeals`
+- `requests.json` and `.csv`: public requests only, newest first, with whitelisted fields `agency`, `filed_on`, `public_subject`, `status`, `held_wd`, `benchmark_result`, `fees_quoted_cents`, `fees_paid_cents`, `denial_reason`, `remedy_notice`. Never export `records_sought`, `note`, `document_url`, `filed_by`, `complexity_set_by` or `custodian_email`.
+  - `status`: `law.status()`. `fees_quoted_cents`: the latest quote (a revised quote replaces the earlier one), or null. `fees_paid_cents`: the sum of `fee_paid` amounts (0 = waived), or null. `denial_reason` and `remedy_notice`: from the final response when it is a denial, else null.
+- `meta.json`: `generated_at`, `as_of` (the day open requests are measured to), `earliest_filed_on` (over counted requests only), and `law` (`law.published_values()`: the four constants and the holiday list)
+- The site directory also carries `law.py` itself, which the methodology page prints.
+- CSV: booleans `true`/`false`, null empty, UTF-8.
 
 ## Phases
 0. **Size the history, then stop and report.** Count WPR's 2024–26 requests per agency from the sent mail of the editor@ inbox, Shereen's and Rowan's. Search terms: "public records request", "open records", "19.35".
@@ -112,6 +133,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
    - an agency below the floor
    - a `stats_only` request inside the embargo
 4. **Site:** agency cards with n, a public request list, CSV downloads, and a methodology page that prints `law.py` and the holiday list.
+   - The home page's lead is one block in `web/leads/` (`scorecard.html` or `audit.html`), chosen by `LEAD` in `web/config.js`. Phase 0 decides it.
 5. **Staff intake form**, only if Table Editor logging becomes a bottleneck.
 
 ## Logging, for staff (v1)
@@ -121,7 +143,8 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
 - **When the agency replies:** add one `request_events` row dated the day the reply arrived.
   - For a fee quote: enter the total, and the split only if the agency gave one.
   - **Answering a quote or question:** always log your answer (`fee_paid`, `fee_paid` with 0 if waived, `fee_disputed`, or `clarification_sent`), or the export will stop.
-  - For a denial: paste the stated reason, or leave it empty if none was given, and record whether the letter mentioned mandamus or review by the DA or AG.
+  - For a denial: paste the stated reason, or leave it empty if none was given, and record whether the letter mentioned mandamus or review by the DA or AG. **For a public request the reason is published**, so like `public_subject` it must not name individuals.
+  - A request has one final response. Records that arrive after it are `records_released`.
 - Keep letters and records in Drive and paste the link into `document_url`. It never leaves the database.
 
 ## Escalation
@@ -135,6 +158,7 @@ The Wisconsin Transparency Project (Tom Kamenick) represents news outlets in rec
 
 ## Design system and conventions
 - **Design system:** Same as the other Ledgers. Teal `#3A867C`, cream `#F6F2E9`; Fraunces for display, Public Sans for body, JetBrains Mono for data.
-- **Code:** Python 3.12. Scripts use `argparse` and support `--dry-run`. Use `psycopg`.
+- **Code:** Python 3.12 (CI pins it; the local `.venv` is 3.14, so use nothing newer than 3.12). Scripts use `argparse` and support `--dry-run`. Use `psycopg`.
+- **Site:** no media-query range syntax (Safari before 16.4 ignores it). Every data value is set as text, never as HTML.
 - **Locally:** Windows, PowerShell 5.1, `python -m pip`, commands chained with semicolons.
 - **Principles:** One correct path, no fallbacks, fail fast. Single-responsibility functions.
