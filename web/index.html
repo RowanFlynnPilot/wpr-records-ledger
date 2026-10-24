@@ -113,6 +113,18 @@
             <tbody id="audit-rows"></tbody>
           </table>
         </div>
+        <!-- Shown once two or more rounds are published. -->
+        <div id="audit-trend" hidden>
+          <h3>Round over round</h3>
+          <p class="section-dek">Working days each agency held the same request, round by round, against the 10-day benchmark. A dash means the agency wasn't in that round.</p>
+          <div class="table-wrap">
+            <table class="trend">
+              <caption class="visually-hidden">Working days held on each round's audit request, by agency</caption>
+              <thead><tr id="trend-head"><th scope="col">Agency</th></tr></thead>
+              <tbody id="trend-rows"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <section id="requests" aria-labelledby="requests-h">

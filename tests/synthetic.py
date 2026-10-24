@@ -125,7 +125,7 @@ REQUESTS = [
         [ev("fee_quoted", 9, 21, amount_cents=15000), ev("fee_disputed", 9, 22),
          ev("fee_quoted", 10, 5, amount_cents=9000), ev("fee_paid", 10, 6, amount_cents=9000),
          ev("fulfilled", 11, 30)],
-        "Fire department response times, 2024–2026"),
+        "Fire department response times, 2024–2026", audit_round="2026-Q3"),   # the city's Q3 audit request
     # Unclassified, no records: 10/26-10/29 = 4.
     req("R15", CITY, d(10, 26), "email", "public", None, [ev("no_records", 10, 30)],
         "Lead service line inventory"),
@@ -205,7 +205,7 @@ EXPECTED_REQUESTS = [
     _listed("2026-10-05-testville-school-district-1", DISTRICT, "2026-10-05", "Bus contract bids", "fulfilled", 4, True, audit="2026-Q4"),
     _listed("2026-10-01-city-of-testville-1", CITY, "2026-10-01", "Police overtime records, 2025", "fulfilled", 5, True, audit="2026-Q4"),
     _listed("2026-09-14-city-of-testville-1", CITY, "2026-09-14", "Fire department response times, 2024–2026", "fulfilled", 51, None,
-            quoted=9000, paid=9000),
+            quoted=9000, paid=9000, audit="2026-Q3"),
 ]
 
 

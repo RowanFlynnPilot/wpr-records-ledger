@@ -137,6 +137,13 @@ thead th.num { white-space: normal; }
 .bench { white-space: nowrap; }
 .bench-missed { color: var(--rust-text); }
 .denial { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.25rem; }
+#audit-trend { margin-top: 1.75rem; }
+#audit-trend h3 { margin-bottom: 0.35rem; }
+table.trend tbody th { font-weight: 500; text-align: left; }
+.trend-days { display: block; font-weight: 700; }
+.trend-note { display: block; font-family: var(--body); font-size: 0.75rem; color: var(--ink-soft); }
+.bench-missed .trend-note { color: var(--rust-text); }
+.trend-gap { color: var(--ink-soft); }
 .timeline { margin-top: 0.35rem; font-weight: 400; font-size: 0.8rem; }
 .timeline summary { cursor: pointer; color: var(--teal-deep); }
 .timeline ol { list-style: none; margin: 0.35rem 0 0; padding: 0 0 0 0.6rem; border-left: 2px solid var(--line); }

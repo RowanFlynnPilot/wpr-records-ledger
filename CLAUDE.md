@@ -154,6 +154,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
      - Amounts are in dollars and `remedy_notice` is `yes`/`no`; the file's `key` links replies to requests and isn't stored.
 2. **Quarterly audit.** File the Q3 2026 round from the Closed Door Ledger's `audit.py` list, one request per custodian with identical wording.
    - Log each with `audit_round` set. The site's audit section shows a round's **public** requests side by side, as counts (a round is too small for shares), so set the round's requests to `public` when it is published.
+   - Once two or more rounds are published, the audit section adds a round-over-round table: each agency's working days held and benchmark result per round, with a dash where it wasn't in a round. It's built in the browser from `requests.json`, so it publishes nothing new.
 3. **Export** (`export.py` and `tests/test_export.py`). Test fixtures must cover:
    - every `law.py` rule
    - a denial with no reason
