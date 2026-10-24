@@ -64,6 +64,20 @@ select id, 'fee_disputed', '2026-10-06' from requests where records_sought = 're
 insert into request_events (request_id, event_type, event_on)
 select id, 'no_records', '2026-10-09' from requests where records_sought = 'request B' and filed_by = 'ZZTEST';
 
+-- public_ref: B was public at filing; A gets one when published and keeps it when unlisted.
+update requests set visibility = 'public', public_subject = 'Request A subject'
+where records_sought = 'request A' and filed_by = 'ZZTEST';
+update requests set visibility = 'stats_only' where records_sought = 'request A' and filed_by = 'ZZTEST';
+do $$ begin
+  if (select public_ref from requests where records_sought = 'request B' and filed_by = 'ZZTEST')
+       is distinct from '2026-10-02-zztest-agency-1'
+     or (select public_ref from requests where records_sought = 'request A' and filed_by = 'ZZTEST')
+       is distinct from '2026-10-01-zztest-agency-1'
+     or (select public_ref from requests where records_sought = 'request C' and filed_by = 'ZZTEST') is not null then
+    raise exception 'TEST FAILED: public_ref not assigned once, on first publication';
+  end if;
+end $$;
+
 do $$ begin
   if (select count(*) from request_events e join requests r on r.id = e.request_id
       where r.filed_by = 'ZZTEST') <> 15 then
@@ -139,6 +153,10 @@ insert into must_fail values
   ('withdrawn dated before an event already logged',
    $s$insert into request_events (request_id, event_type, event_on)
       select id, 'withdrawn', '2026-10-05' from requests where records_sought = 'request C'$s$),
+  ('public_ref typed by hand',
+   $s$update requests set public_ref = '2026-10-01-zztest-agency-9' where records_sought = 'request C'$s$),
+  ('public_ref changed',
+   $s$update requests set public_ref = null where records_sought = 'request B' and filed_by = 'ZZTEST'$s$),
   ('filed_on moved after logged events',
    $s$update requests set filed_on = '2026-10-03' where records_sought = 'request A' and filed_by = 'ZZTEST'$s$);
 

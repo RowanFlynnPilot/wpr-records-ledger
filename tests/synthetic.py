@@ -6,6 +6,7 @@ SENTINEL, so a test can search every output file for it.
 """
 from __future__ import annotations
 
+import re
 from datetime import date
 
 AS_OF = date(2027, 3, 1)   # a Monday: every stats_only request filed by Dec. 1, 2026 is 90 days old
@@ -235,12 +236,26 @@ EXPECTED_EVENTS = (
 EXPECTED_EARLIEST_FILED_ON = "2026-09-01"   # R13; private R16 (Aug 3) is excluded
 
 
+def _public_refs(requests: list[dict]) -> list[str | None]:
+    """What the schema's assign_public_ref trigger sets when these are inserted in order."""
+    refs, seen = [], {}
+    for r in requests:
+        if r["visibility"] != "public":
+            refs.append(None)
+            continue
+        stem = f"{r['filed_on'].isoformat()}-{re.sub(r'[^a-z0-9]+', '-', r['agency'].lower()).strip('-')}"
+        seen[stem] = seen.get(stem, 0) + 1
+        refs.append(f"{stem}-{seen[stem]}")
+    return refs
+
+
 def as_fetched(requests: list[dict] = REQUESTS) -> list[dict]:
     """The requests in the shape export.fetch returns (private ones included,
     to show the metrics drop them even if a query didn't)."""
     names = list(AGENCIES) + sorted({r["agency"] for r in requests} - set(AGENCIES))
     agency_ids = {name: i + 1 for i, name in enumerate(names)}
-    return [{"id": i + 1, "agency_id": agency_ids[r["agency"]], "agency": r["agency"],
+    refs = _public_refs(requests)
+    return [{"id": i + 1, "public_ref": refs[i], "agency_id": agency_ids[r["agency"]], "agency": r["agency"],
              "filed_on": r["filed_on"], "channel": r["channel"], "public_subject": r["public_subject"],
              "visibility": r["visibility"], "complexity": r["complexity"], "audit_round": r["audit_round"],
              "events": [dict(e) for e in r["events"]]}

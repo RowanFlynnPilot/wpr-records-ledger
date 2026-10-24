@@ -13,7 +13,6 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
   - It refuses to run unless `current_user` is `ledger_export`, reads in one read-only repeatable-read transaction, and never selects a private request or a never-exported column.
   - `--out` must not exist; the export writes a fresh directory. `--dry-run` reads, validates and computes but writes nothing. `--as-of` defaults to today in America/Chicago.
   - **Actions logs are public.** The export prints only published counts (a count of all requests read would reveal a fresh embargoed one). A validation failure prints only how many requests failed: an id (which also counts private requests) or a rule ("denied follows an unanswered fee_quoted") could reveal a fresh embargoed request. To see which, run `python export.py --dry-run --name-requests` locally with the `ledger_export` URL.
-  - `ref` numbering can shift when a same-day request at that agency is listed or unlisted, so join `requests` and `request_events` from the same export.
   - **Quarterly frozen copies.** After the export, a separate `snapshot` job (the only one with `contents: write`) publishes the exported CSVs and JSON as the GitHub Release `data-YYYY-Qn` for the quarter that last ended, if it doesn't exist yet: the first successful export after a quarter ends freezes it, so a figure cited in a story can be checked later. A release is not a commit; it is permanent public data, so correcting a request after its quarter is frozen means editing or deleting that release by hand.
   - GitHub disables a public repo's scheduled workflows after 60 days with no repository activity, and this repo commits no data. Watch for GitHub's warning email and re-enable the workflow, or push a commit, before then.
 - **Licensing.** The repo is public. Code is MIT-licensed and published data is CC BY 4.0.
@@ -48,6 +47,7 @@ Use `127.0.0.1`, not `localhost`: on this machine `localhost` tries IPv6 first a
     - `public`: listed and counted. Requires a non-blank `public_subject`, which never names individuals.
     - `stats_only` (the default): counted once 90 days old (closed or not), never listed.
     - `private`: left out of the export.
+  - `public_ref` is set automatically the first time the request is public, and is permanent (see Outputs).
   - `audit_round` marks a quarterly audit request, as `YYYY-Qn` (e.g. `2026-Q3`); null for reporting requests. Its format is checked.
   - `complexity` is `simple`, `complex`, or null until classified.
     - `complexity_set_by` must differ from `filed_by`, compared case- and space-insensitively.
@@ -135,7 +135,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
   - `channel` lets a reader see that an oral request's denial owed neither reasons nor the remedy notice.
   - `status`: `law.status()`: `open`, the final event's type, or `denial_reversed`. `fees_quoted_cents`: the latest quote (a revised quote replaces the earlier one), or null. `fees_paid_cents`: the sum of `fee_paid` amounts (0 = waived), or null. `denial_reason` and `remedy_notice`: from the final response when it is a denial, else null.
 - `request_events.json` and `.csv`: every event of the listed requests, in `law.in_order()`, with whitelisted fields `ref`, `event_on`, `event_type`, `amount_cents` (never `note`, `document_url`, the fee itemization or denial fields, which the request row already carries).
-  - `ref` (also the first field of `requests`) joins them: filing date, agency slug, and the request's place among that agency's listed requests that day, by id. Database ids are never published, since they count every request, private ones included.
+  - `ref` (also the first field of `requests`) joins them. It is `requests.public_ref`, which the `assign_public_ref` trigger sets the first time a request is public: filing date, agency slug, and its place among that agency's refs that day. It never changes, even if the request is later unlisted, so a cited ref stays good; staff can't type or edit one. (A gap, e.g. a `-2` with no `-1` listed, shows that a same-day request was once listed.) Database ids are never published, since they count every request, private ones included.
 - `meta.json`: `generated_at`, `as_of` (the day open requests are measured to), `earliest_filed_on` (over counted requests only), and `law` (`law.published_values()`: the four constants and the holiday lists, by agency then year)
 - The site directory also carries `law.py` itself, which the methodology page prints.
 - CSV: booleans `true`/`false`, null empty, UTF-8.

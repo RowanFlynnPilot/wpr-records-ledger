@@ -64,6 +64,7 @@ create table requests (
   complexity        request_complexity, -- null until classified; unclassified requests skip simple/complex metrics
   complexity_set_by text,                -- initials; must not be the filer
   audit_round       text,                -- quarterly audit round, e.g. '2026-Q3'; null for reporting requests
+  public_ref        text unique,         -- set once, by trigger, the first time the request is public; never changes
   created_at        timestamptz not null default now(),
   constraint audit_round_format
     check (audit_round is null or audit_round ~ '^[0-9]{4}-Q[1-4]$'),
@@ -179,6 +180,31 @@ end $$;
 
 create trigger requests_filed_on_check before update of filed_on on requests
   for each row execute function check_request_filed_on();
+
+-- public_ref: the published key for a listed request and its timeline. Set the
+-- first time the request is public, as filing date, agency slug, and its place
+-- among that agency's refs for that day; kept for good even if the request is
+-- later unlisted, so a cited ref never points somewhere else. Never typed by hand.
+create function assign_public_ref() returns trigger
+language plpgsql set search_path = public as $$
+declare
+  stem text;
+begin
+  if (tg_op = 'INSERT' and new.public_ref is not null)
+     or (tg_op = 'UPDATE' and new.public_ref is distinct from old.public_ref) then
+    raise exception 'public_ref is set automatically and never changes'
+      using errcode = 'check_violation';
+  end if;
+  if new.visibility = 'public' and new.public_ref is null then
+    select new.filed_on::text || '-' || trim(both '-' from regexp_replace(lower(a.name), '[^a-z0-9]+', '-', 'g'))
+      into stem from agencies a where a.id = new.agency_id;
+    new.public_ref := stem || '-' || (select count(*) + 1 from requests where public_ref ~ ('^' || stem || '-[0-9]+$'));
+  end if;
+  return new;
+end $$;
+
+create trigger requests_public_ref before insert or update on requests
+  for each row execute function assign_public_ref();
 
 alter table agencies       enable row level security;
 alter table requests       enable row level security;

@@ -16,7 +16,6 @@ import argparse
 import csv
 import json
 import os
-import re
 import shutil
 import statistics
 from datetime import date, datetime, timezone
@@ -55,7 +54,7 @@ META_FIELDS = ("generated_at", "as_of", "earliest_filed_on", "law")
 AGENCIES_SQL = "select id, name from agencies"
 REQUESTS_SQL = """
     select id, agency_id, filed_on, channel::text as channel, public_subject,
-           visibility::text as visibility, complexity::text as complexity, audit_round
+           visibility::text as visibility, complexity::text as complexity, audit_round, public_ref
     from requests
     where visibility <> 'private'
     order by id"""
@@ -192,23 +191,15 @@ def _listed(derived: list[dict]) -> list[dict]:
                   key=lambda d: (-d["filed_on"].toordinal(), d["agency"], d["public_subject"]))
 
 
-def request_refs(listed: list[dict]) -> dict[int, str]:
-    """A key joining each listed request to its timeline: filing date, agency, and
-    its place among that agency's listed requests that day. Database ids are never
-    published, since they count every request, private ones included."""
-    refs: dict[int, str] = {}
-    seen: dict[str, int] = {}
-    for d in sorted(listed, key=lambda d: d["id"]):
-        stem = f"{d['filed_on'].isoformat()}-{re.sub(r'[^a-z0-9]+', '-', d['agency'].lower()).strip('-')}"
-        seen[stem] = seen.get(stem, 0) + 1
-        refs[d["id"]] = f"{stem}-{seen[stem]}"
-    return refs
-
-
-def request_row(d: dict, ref: str) -> dict:
+def request_row(d: dict) -> dict:
+    """A listed request. Its ref joins it to its timeline; the database sets it,
+    permanently, the first time the request is public (never the id, which
+    counts every request, private ones included)."""
+    if d["public_ref"] is None:
+        raise ExportError(f"a listed request has no public_ref; check the schema's assign_public_ref trigger")
     denial = d["denial"]
     return whitelisted({
-        "ref": ref,
+        "ref": d["public_ref"],
         "agency": d["agency"],
         "filed_on": d["filed_on"].isoformat(),
         "public_subject": d["public_subject"],
@@ -225,18 +216,14 @@ def request_row(d: dict, ref: str) -> dict:
 
 
 def public_requests(derived: list[dict]) -> list[dict]:
-    listed = _listed(derived)
-    refs = request_refs(listed)
-    return [request_row(d, refs[d["id"]]) for d in listed]
+    return [request_row(d) for d in _listed(derived)]
 
 
 def public_events(derived: list[dict]) -> list[dict]:
     """Every event of the listed requests, in request-list order, each in law.py's order."""
-    listed = _listed(derived)
-    refs = request_refs(listed)
-    return [whitelisted({"ref": refs[d["id"]], "event_on": e["event_on"].isoformat(),
+    return [whitelisted({"ref": d["public_ref"], "event_on": e["event_on"].isoformat(),
                          "event_type": e["event_type"], "amount_cents": e["amount_cents"]}, EVENT_FIELDS)
-            for d in listed for e in law.in_order(d["events"])]
+            for d in _listed(derived) for e in law.in_order(d["events"])]
 
 
 def meta(derived: list[dict], as_of: date, generated_at: datetime) -> dict:
