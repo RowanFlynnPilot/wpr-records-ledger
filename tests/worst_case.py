@@ -75,7 +75,7 @@ def _meta(holidays, earliest):
         "generated_at": GENERATED_AT.isoformat(timespec="seconds"), "as_of": AS_OF.isoformat(),
         "earliest_filed_on": earliest,
         "law": {"SIMPLE_REQUEST_BENCHMARK_WD": 10, "LOCATION_FEE_THRESHOLD_CENTS": 5000, "MIN_N_FOR_RATES": 5,
-                "STATS_ONLY_EMBARGO_DAYS": 90, "HOLIDAYS": holidays},
+                "STATS_ONLY_EMBARGO_DAYS": 90, "RULES_FINGERPRINT": "0123456789ab", "HOLIDAYS": holidays},
     }, export.META_FIELDS)
 
 

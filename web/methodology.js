@@ -1,6 +1,7 @@
 import { doneLoading, el, fmtDate, fmtDateTime, loadJSON, loadText, showError, warnIfStale } from "./common.js";
 
 const DESCRIPTIONS = {
+  RULES_FINGERPRINT: "Version of law.py these figures were computed under (see Changes to the rules)",
   SIMPLE_REQUEST_BENCHMARK_WD: "Working days DOJ calls generally reasonable for a simple request",
   LOCATION_FEE_THRESHOLD_CENTS: "Location cost, in cents, below which no location fee may be charged",
   MIN_N_FOR_RATES: "Fewest requests a median or share may rest on",

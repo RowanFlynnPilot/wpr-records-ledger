@@ -5,6 +5,7 @@ page prints it. Change a rule here, nowhere else.
 """
 from __future__ import annotations
 
+import hashlib
 import tomllib
 from datetime import date, timedelta
 from pathlib import Path
@@ -413,9 +414,17 @@ def shows_rate(n: int) -> bool:
     return n >= MIN_N_FOR_RATES
 
 
+def fingerprint() -> str:
+    """A short SHA-256 of this file, line endings normalized so every checkout agrees.
+    It names the version of the rules a figure was computed under."""
+    source = Path(__file__).read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(source).hexdigest()[:12]
+
+
 def published_values() -> dict:
     """The values the methodology page prints."""
     return {
+        "RULES_FINGERPRINT": fingerprint(),
         "SIMPLE_REQUEST_BENCHMARK_WD": SIMPLE_REQUEST_BENCHMARK_WD,
         "LOCATION_FEE_THRESHOLD_CENTS": LOCATION_FEE_THRESHOLD_CENTS,
         "MIN_N_FOR_RATES": MIN_N_FOR_RATES,

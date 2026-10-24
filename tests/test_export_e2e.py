@@ -80,7 +80,7 @@ def test_export_writes_every_file_as_expected(db, tmp_path, capsys):
     assert meta["earliest_filed_on"] == synthetic.EXPECTED_EARLIEST_FILED_ON
     assert meta["law"] == {
         "SIMPLE_REQUEST_BENCHMARK_WD": 10, "LOCATION_FEE_THRESHOLD_CENTS": 5000,
-        "MIN_N_FOR_RATES": 5, "STATS_ONLY_EMBARGO_DAYS": 90,
+        "MIN_N_FOR_RATES": 5, "STATS_ONLY_EMBARGO_DAYS": 90, "RULES_FINGERPRINT": law.fingerprint(),
         "HOLIDAYS": {agency: {str(y): sorted(d.isoformat() for d in days) for y, days in years.items()}
                      for agency, years in synthetic.TEST_HOLIDAYS.items()},
     }

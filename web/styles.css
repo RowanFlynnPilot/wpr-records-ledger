@@ -177,6 +177,11 @@ table.trend thead th:first-child { background: var(--cream); }
 .prose { max-width: 46rem; }
 .prose li { margin-bottom: 0.4rem; }
 .values td:first-child { font-family: var(--mono); font-size: 0.82rem; }
+.dictionary td:first-child { white-space: nowrap; }
+.dictionary td:last-child { font-size: 0.88rem; }
+#data-h + .section-dek + h3, .dictionary { margin-top: 0.5rem; }
+section h3 + .table-wrap { margin-bottom: 1.25rem; }
+.changes code { font-size: 0.85rem; }
 .holidays { columns: 3 12rem; font-family: var(--mono); font-size: 0.82rem; padding-left: 1.1rem; margin: 0 0 0.75rem; }
 .holiday-agency { background: var(--white); border: 1px solid var(--line); padding: 0.7rem 1rem; margin-bottom: 0.6rem; }
 .holiday-agency summary { cursor: pointer; font-family: var(--display); font-weight: 600; font-size: 1.1rem; }

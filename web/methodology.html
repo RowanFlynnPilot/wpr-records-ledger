@@ -116,6 +116,99 @@
         </p>
       </section>
 
+      <section aria-labelledby="data-h">
+        <h2 id="data-h">The data files</h2>
+        <p class="section-dek">
+          Each table downloads as CSV and JSON with the same fields. In CSV, true and false are written out and an
+          empty cell means no value. Amounts are in cents. Only listed requests appear in requests and
+          request_events; the scorecard also counts unlisted requests once they are 90 days old.
+        </p>
+        <h3>scorecard.csv / .json</h3>
+        <div class="table-wrap" role="region" aria-label="Fields of scorecard.csv / .json" tabindex="0">
+          <table class="values dictionary" data-file="scorecard">
+            <thead><tr><th scope="col">Field</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>agency</code></td><td>The agency's name.</td></tr>
+              <tr><td><code>requests</code></td><td>Requests counted: every listed request, and unlisted ones 90 days old or older.</td></tr>
+              <tr><td><code>open</code></td><td>Counted requests with no final response yet.</td></tr>
+              <tr><td><code>simple_n</code></td><td>Counted requests classified simple.</td></tr>
+              <tr><td><code>complex_n</code></td><td>Counted requests classified complex.</td></tr>
+              <tr><td><code>unclassified_n</code></td><td>Counted requests not yet classified.</td></tr>
+              <tr><td><code>median_held_wd_simple</code></td><td>Median working days held over the simple requests the agency answered that the benchmark judges. Empty when <code>median_n</code> is under 5.</td></tr>
+              <tr><td><code>median_n</code></td><td>How many requests the median rests on.</td></tr>
+              <tr><td><code>benchmark_met_share</code></td><td>Share of judged simple requests answered within 10 working days, 0 to 1. Empty when <code>benchmark_n</code> is under 5.</td></tr>
+              <tr><td><code>benchmark_n</code></td><td>How many simple requests the benchmark judged.</td></tr>
+              <tr><td><code>denials</code></td><td>Requests whose final response was a full or partial denial.</td></tr>
+              <tr><td><code>denials_without_reasons</code></td><td>Of those, written requests whose denial stated no reason.</td></tr>
+              <tr><td><code>denials_missing_remedy_notice</code></td><td>Of those, written requests whose denial gave no notice of appeal rights.</td></tr>
+              <tr><td><code>denials_reversed</code></td><td>Of those, requests where the agency later released everything it withheld.</td></tr>
+              <tr><td><code>no_records</code></td><td>Requests answered with a statement that no records exist.</td></tr>
+              <tr><td><code>location_fee_under_50</code></td><td>Requests with an itemized quote charging a location fee under $50, which the law doesn't allow.</td></tr>
+              <tr><td><code>subject_notice_n</code></td><td>Requests where the agency notified the record's subject under s. 19.356.</td></tr>
+              <tr><td><code>appeals</code></td><td>Appeals to the district attorney or attorney general, and lawsuits, filed by WPR.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>requests.csv / .json</h3>
+        <div class="table-wrap" role="region" aria-label="Fields of requests.csv / .json" tabindex="0">
+          <table class="values dictionary" data-file="requests">
+            <thead><tr><th scope="col">Field</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>ref</code></td><td>The request's permanent reference number (see Reference numbers).</td></tr>
+              <tr><td><code>agency</code></td><td>The agency's name.</td></tr>
+              <tr><td><code>filed_on</code></td><td>The day WPR filed the request, YYYY-MM-DD.</td></tr>
+              <tr><td><code>public_subject</code></td><td>What was requested, as written for readers.</td></tr>
+              <tr><td><code>audit_round</code></td><td>The quarterly audit round, such as 2026-Q3, or empty for a reporting request.</td></tr>
+              <tr><td><code>channel</code></td><td>How it was filed: email, portal, mail, hand_delivered or oral.</td></tr>
+              <tr><td><code>status</code></td><td>open, fulfilled, partially_denied, denied, denial_reversed, no_records or withdrawn.</td></tr>
+              <tr><td><code>held_wd</code></td><td>Working days held: to the final response, or to the data's as-of day while open.</td></tr>
+              <tr><td><code>benchmark_result</code></td><td>true if answered within 10 working days, false if not, empty if not judged.</td></tr>
+              <tr><td><code>fees_quoted_cents</code></td><td>The latest fee quoted, in cents; empty if none.</td></tr>
+              <tr><td><code>fees_paid_cents</code></td><td>Total paid, in cents; 0 means waived; empty if nothing was paid.</td></tr>
+              <tr><td><code>denial_reason</code></td><td>The reason a denial stated, as the agency wrote it; empty if it stated none, or if not a denial.</td></tr>
+              <tr><td><code>remedy_notice</code></td><td>For a denial: whether it gave notice of appeal rights.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>request_events.csv / .json</h3>
+        <div class="table-wrap" role="region" aria-label="Fields of request_events.csv / .json" tabindex="0">
+          <table class="values dictionary" data-file="request_events">
+            <thead><tr><th scope="col">Field</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>ref</code></td><td>The request it belongs to, matching <code>ref</code> in requests.</td></tr>
+              <tr><td><code>event_on</code></td><td>The day it happened, YYYY-MM-DD.</td></tr>
+              <tr><td><code>event_type</code></td><td>What happened, such as fee_quoted or fulfilled; the list is in the staff guide on GitHub.</td></tr>
+              <tr><td><code>amount_cents</code></td><td>For a fee quote or payment, the amount in cents.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>meta.json</h3>
+        <div class="table-wrap" role="region" aria-label="Fields of meta.json" tabindex="0">
+          <table class="values dictionary" data-file="meta">
+            <thead><tr><th scope="col">Field</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>generated_at</code></td><td>When this data was built.</td></tr>
+              <tr><td><code>as_of</code></td><td>The day open requests are measured to.</td></tr>
+              <tr><td><code>earliest_filed_on</code></td><td>The earliest filing date among counted requests.</td></tr>
+              <tr><td><code>law</code></td><td>The values in law.py, including the rules fingerprint and every agency's holiday list.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="changes-h" class="prose">
+        <h2 id="changes-h">Changes to the rules</h2>
+        <p>
+          Each version of law.py has a fingerprint, listed with the values below and in meta.json. When a rule
+          changes, figures computed under the old one can move, so every change is listed here, newest first.
+        </p>
+        <!-- EDITOR: whenever law.py changes, add an entry at the top: the date, the new fingerprint (python -c
+             "import law; print(law.fingerprint())") and what changed. The tests fail until the current one is listed. -->
+        <ol class="changes" id="changes">
+          <li><strong>Oct. 24, 2026</strong>, rules <code>bd56766e508e</code>: the rules as first published.</li>
+        </ol>
+      </section>
+
       <section aria-labelledby="values-h">
         <h2 id="values-h">The values in law.py</h2>
         <div class="table-wrap" role="region" aria-label="Values in law.py" tabindex="0">
