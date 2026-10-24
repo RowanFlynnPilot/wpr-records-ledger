@@ -59,6 +59,18 @@ export function benchmarkLabel(result) {
   return "Not judged";
 }
 
+// The export runs nightly; data older than this means it has stopped.
+const STALE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
+
+export function warnIfStale(meta, now = Date.now()) {
+  if (now - new Date(meta.generated_at).getTime() <= STALE_AFTER_MS) return null;
+  const banner = el("p", { class: "stale-banner", role: "status" },
+    `These figures were last rebuilt ${fmtDateTime(meta.generated_at)}. The nightly update may have stopped, ` +
+    "so they may be out of date.");
+  document.querySelector(".masthead").after(banner);
+  return banner;
+}
+
 export function showError(container, err) {
   container.replaceChildren(el("p", { class: "load-error" }, `Could not load the ledger's data (${err.message}).`));
 }

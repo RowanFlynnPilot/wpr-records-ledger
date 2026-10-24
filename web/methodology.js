@@ -1,4 +1,4 @@
-import { el, fmtDate, fmtDateTime, loadJSON, loadText, showError } from "./common.js";
+import { el, fmtDate, fmtDateTime, loadJSON, loadText, showError, warnIfStale } from "./common.js";
 
 const DESCRIPTIONS = {
   SIMPLE_REQUEST_BENCHMARK_WD: "Working days DOJ calls generally reasonable for a simple request",
@@ -27,6 +27,7 @@ async function start() {
   const [meta, source] = await Promise.all([loadJSON("data/meta.json"), loadText("law.py")]);
   const { HOLIDAYS, ...values } = meta.law;
   document.getElementById("updated").textContent = `Rules as of ${fmtDateTime(meta.generated_at)}`;
+  warnIfStale(meta);
   for (const slot of document.querySelectorAll("[data-law]")) slot.textContent = values[slot.dataset.law];
   document.getElementById("values").replaceChildren(...Object.entries(values).map(([name, value]) =>
     el("tr", {}, el("td", {}, name), el("td", {}, String(value)), el("td", {}, DESCRIPTIONS[name] ?? ""))));

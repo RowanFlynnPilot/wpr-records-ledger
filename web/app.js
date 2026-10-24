@@ -1,6 +1,7 @@
 import { LEAD } from "./config.js";
 import {
   benchmarkLabel, el, fmtCents, fmtDate, fmtDateTime, fmtInt, loadJSON, loadText, showError, STATUS_LABELS,
+  warnIfStale,
 } from "./common.js";
 
 const main = document.querySelector("main");
@@ -163,6 +164,7 @@ async function start() {
   ]);
   document.getElementById("updated").textContent =
     `Updated ${fmtDateTime(meta.generated_at)} · open requests measured to ${fmtDate(meta.as_of)}`;
+  warnIfStale(meta);
   for (const n of document.querySelectorAll(".min-n")) n.textContent = meta.law.MIN_N_FOR_RATES;
   const rounds = auditRounds(requests);
   fillLead(document.getElementById("lead"), leadHtml, scorecard, meta, rounds);

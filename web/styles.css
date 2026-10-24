@@ -162,6 +162,12 @@ pre.source {
 .site-footer p { margin: 0 0 0.35rem; font-size: 0.8rem; line-height: 1.6; color: var(--ink-soft); }
 .site-footer strong { color: var(--ink); }
 
+.stale-banner {
+  margin: -1.25rem 0 2rem; padding: 0.75rem 1rem;
+  background: var(--white); border: 1px solid var(--line); border-left: 4px solid var(--rust-text);
+  font-size: 0.9rem;
+}
+
 .load-error { padding: 3rem 1rem; font-family: var(--mono); color: var(--rust-text); }
 
 /* ── tablet and phone ─────────────────────────────────────────────────────── */

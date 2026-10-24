@@ -136,6 +136,15 @@ def test_location_fee_counts_requests_not_revised_quotes():
     assert export.scorecard(derived([requote]))[0]["location_fee_under_50"] == 1
 
 
+def test_december_warns_about_next_years_holiday_lists(monkeypatch):
+    card = synthetic.EXPECTED_SCORECARD
+    assert export.holiday_warning(card, date(2027, 11, 30)) is None
+    warning = export.holiday_warning(card, date(2027, 12, 1))
+    assert warning.startswith("No 2028 holiday list for City of Testville, Testville School District")
+    monkeypatch.setitem(law.HOLIDAYS[synthetic.CITY], 2028, frozenset())
+    assert synthetic.CITY not in export.holiday_warning(card, date(2027, 12, 1))
+
+
 def test_fees():
     events = [ev("fee_quoted", 9, 21, amount_cents=15000), ev("fee_disputed", 9, 22),
               ev("fee_quoted", 10, 5, amount_cents=9000), ev("fee_paid", 10, 6, amount_cents=4000),

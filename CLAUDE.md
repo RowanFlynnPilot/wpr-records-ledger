@@ -102,7 +102,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
 - **Denial checks.** `denial_lacks_reasons()` and `denial_lacks_remedy_notice()` apply to the final response of **written** requests only: s. 19.35(4)(b) requires reasons and the remedy notice for written requests, and an oral request's denial owes written reasons only on demand.
 - **Location fee.** `location_fee_below_threshold()`: an itemized quote with 0 < `location_cents` < `LOCATION_FEE_THRESHOLD_CENTS`.
 - **Floor.** `shows_rate(n)`: n >= `MIN_N_FOR_RATES`.
-- **Holidays.** Each agency with a counted request needs `HOLIDAYS[agency][year]` before the year's first export day: **set 2027 for every such agency before Jan. 1, 2027**, or the nightly export stops.
+- **Holidays.** Each agency with a counted request needs `HOLIDAYS[agency][year]` before the year's first export day: **set 2027 for every such agency before Jan. 1, 2027**, or the nightly export stops. From Dec. 1 the export puts a warning on each Actions run naming the published agencies with no list for the coming year.
 - **Embargo.** `counts_in_metrics()` holds `stats_only` requests out until they are 90 days old, **even once closed**, so a nightly count can't reveal a fresh request tied to an unpublished story. (Until Oct. 2026 a close also let one in; a request filed Monday and denied Wednesday then showed up Thursday as +1 request and +1 denial.) Unlisted figures therefore lag by up to 90 days; public requests count at once.
 
 ## Metrics (`export.py`)
@@ -143,6 +143,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
    - an agency below the floor
    - a `stats_only` request inside the embargo
 4. **Site:** agency cards with n, a public request list, CSV downloads, and a methodology page that prints `law.py` and each agency's holiday list.
+   - Both pages show a banner when `meta.json` is more than 2 days old: the nightly export has stopped (a failed run, or GitHub disabling the schedule).
    - The home page's lead is one block in `web/leads/` (`scorecard.html` or `audit.html`), chosen by `LEAD` in `web/config.js`. Phase 0 decides it.
 5. **Staff intake form**, only if Table Editor logging becomes a bottleneck.
 

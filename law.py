@@ -61,6 +61,10 @@ def _holidays(agency: str, start: date, end: date) -> dict[int, frozenset[date]]
     return HOLIDAYS[agency]
 
 
+def has_holiday_list(agency: str, year: int) -> bool:
+    return year in HOLIDAYS.get(agency, {})
+
+
 def working_days(agency: str, start: date, end: date, excluded: frozenset[date] = frozenset()) -> int:
     """The agency's working days from `start` up to, not including, `end`."""
     if end < start:

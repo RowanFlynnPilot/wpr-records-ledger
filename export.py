@@ -236,6 +236,18 @@ def write_site(out: Path, card: list[dict], listed: list[dict], meta_doc: dict) 
     (data_dir / "meta.json").write_text(json.dumps(meta_doc, indent=2) + "\n", encoding="utf-8")
 
 
+def holiday_warning(card: list[dict], as_of: date) -> str | None:
+    """From December on, name the published agencies with no list for next year:
+    on Jan. 1 the export stops for each of them."""
+    if as_of.month != 12:
+        return None
+    year = as_of.year + 1
+    missing = [a["agency"] for a in card if not law.has_holiday_list(a["agency"], year)]
+    if not missing:
+        return None
+    return f"No {year} holiday list for {', '.join(missing)}: set law.HOLIDAYS before Jan. 1 or the export stops"
+
+
 def run(conninfo: str, out: Path, as_of: date, dry_run: bool) -> None:
     with psycopg.connect(conninfo) as conn:
         conn.read_only = True
@@ -252,6 +264,9 @@ def run(conninfo: str, out: Path, as_of: date, dry_run: bool) -> None:
           f"{len(listed)} public")
     for a in card:
         print(f"  {a['agency']}: {a['requests']} requests, {a['open']} open")
+    warning = holiday_warning(card, as_of)
+    if warning:
+        print(f"::warning::{warning}")   # an annotation on the Actions run
     if dry_run:
         print("dry run: nothing written")
         return
