@@ -100,7 +100,8 @@ section { margin-bottom: 3.25rem; }
 /* ── agency cards ─────────────────────────────────────────────────────────── */
 .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
 .card { background: var(--white); border: 1px solid var(--line); padding: 1.25rem 1.25rem 1rem; }
-.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 0.25rem; }
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.15rem 1rem; margin-bottom: 0.25rem; }
+.card-head .card-title { flex: 1 1 14rem; min-width: 0; overflow-wrap: anywhere; }
 .card-title { font-family: var(--display); font-weight: 600; font-size: 1.2rem; margin: 0; line-height: 1.2; }
 .card-n { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap; }
 .card-mix { font-size: 0.85rem; color: var(--ink-soft); margin: 0 0 1rem; }
@@ -118,7 +119,7 @@ section { margin-bottom: 3.25rem; }
 
 /* ── request list ─────────────────────────────────────────────────────────── */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.9rem; font-size: 0.9rem; }
-.toolbar select { font: inherit; padding: 0.35rem 0.5rem; border: 1px solid var(--line); background: var(--white); color: var(--ink); }
+.toolbar select { font: inherit; padding: 0.35rem 0.5rem; border: 1px solid var(--line); background: var(--white); color: var(--ink); min-width: 0; max-width: 100%; }
 .toolbar .shown { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-soft); }
 .table-wrap { background: var(--white); border: 1px solid var(--line); overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
@@ -130,7 +131,17 @@ thead th {
 }
 td.num, th.num { text-align: right; font-family: var(--mono); white-space: nowrap; }
 td.date { font-family: var(--mono); white-space: nowrap; }
-td.subject { min-width: 11rem; font-weight: 500; }
+td.subject { min-width: 11rem; font-weight: 500; overflow-wrap: anywhere; }
+.denial { overflow-wrap: anywhere; }
+.reason summary { cursor: pointer; list-style: none; }
+.reason summary::-webkit-details-marker { display: none; }
+.reason-more { color: var(--teal-deep); text-decoration: underline; white-space: nowrap; }
+.reason[open] .reason-more { display: none; }
+.reason p { margin: 0.35rem 0; }
+.more { margin-top: 0.75rem; font: inherit; font-size: 0.9rem; font-weight: 500; padding: 0.5rem 0.9rem;
+  border: 1px solid var(--teal-deep); background: var(--white); color: var(--teal-deep); cursor: pointer; }
+.more:hover { background: var(--cream); }
+.empty-note { color: var(--ink-soft); margin: 0; }
 td.status-cell { min-width: 9.5rem; }
 thead th.num { white-space: normal; }
 .status { font-weight: 500; }
@@ -139,7 +150,11 @@ thead th.num { white-space: normal; }
 .denial { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.25rem; }
 #audit-trend { margin-top: 1.75rem; }
 #audit-trend h3 { margin-bottom: 0.35rem; }
-table.trend tbody th { font-weight: 500; text-align: left; }
+table.trend tbody th { font-weight: 500; text-align: left; min-width: 9rem; }
+table.trend tbody th, table.trend thead th:first-child {
+  position: sticky; left: 0; z-index: 1; background: var(--white); box-shadow: 1px 0 0 var(--line);
+}
+table.trend thead th:first-child { background: var(--cream); }
 .trend-entry { display: block; }
 .trend-entry + .trend-entry { margin-top: 0.4rem; }
 .trend-days { display: block; font-weight: 700; }
@@ -156,8 +171,9 @@ table.trend tbody th { font-weight: 500; text-align: left; }
 /* ── downloads, methodology ───────────────────────────────────────────────── */
 .downloads { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
 .download { background: var(--white); border: 1px solid var(--line); padding: 1rem 1.1rem; }
-.download p { margin: 0.25rem 0 0.5rem; font-size: 0.88rem; color: var(--ink-soft); }
-.download a { font-family: var(--mono); font-size: 0.85rem; margin-right: 1rem; }
+.download p:not(.links) { margin: 0.25rem 0 0.5rem; font-size: 0.88rem; color: var(--ink-soft); }
+.download .links { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0; }
+.download a { font-family: var(--mono); font-size: 0.85rem; }
 .prose { max-width: 46rem; }
 .prose li { margin-bottom: 0.4rem; }
 .values td:first-child { font-family: var(--mono); font-size: 0.82rem; }

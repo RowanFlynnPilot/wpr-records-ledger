@@ -100,7 +100,7 @@
           <select id="round-filter"></select>
           <span class="shown" id="round-summary" aria-live="polite"></span>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" role="region" aria-label="Audit requests in the selected round" tabindex="0">
           <table class="requests audit">
             <caption class="visually-hidden">Audit requests in the selected round, by agency</caption>
             <thead>
@@ -121,7 +121,7 @@
         <div id="audit-trend" hidden>
           <h3>Round over round</h3>
           <p class="section-dek">Working days each agency held the same request, round by round, against the 10-day benchmark. A dash means the agency wasn't in that round.</p>
-          <div class="table-wrap">
+          <div class="table-wrap" role="region" aria-label="Round over round" tabindex="0">
             <table class="trend">
               <caption class="visually-hidden">Working days held on each round's audit request, by agency</caption>
               <thead><tr id="trend-head"><th scope="col">Agency</th></tr></thead>
@@ -143,7 +143,7 @@
           <select id="agency-filter"><option value="">All agencies</option></select>
           <span class="shown" id="shown" aria-live="polite"></span>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" role="region" aria-label="Listed requests" tabindex="0">
           <table class="requests">
             <caption class="visually-hidden">Listed public records requests, newest first</caption>
             <thead>
@@ -161,6 +161,7 @@
             <tbody id="request-rows"></tbody>
           </table>
         </div>
+        <button type="button" class="more" id="more" hidden></button>
       </section>
 
       <section id="downloads" aria-labelledby="downloads-h">
@@ -173,22 +174,22 @@
           <div class="download">
             <h3>Agency scorecard</h3>
             <p>One row per agency: counts, the simple-request median and benchmark share with their n, denials, fees, appeals.</p>
-            <a href="data/scorecard.csv" download>scorecard.csv</a><a href="data/scorecard.json">scorecard.json</a>
+            <p class="links"><a href="data/scorecard.csv" download>scorecard.csv</a><a href="data/scorecard.json">scorecard.json</a></p>
           </div>
           <div class="download">
             <h3>Listed requests</h3>
             <p>One row per listed request: agency, filing date, subject, audit round, status, days held, benchmark, fees, any denial's stated reason.</p>
-            <a href="data/requests.csv" download>requests.csv</a><a href="data/requests.json">requests.json</a>
+            <p class="links"><a href="data/requests.csv" download>requests.csv</a><a href="data/requests.json">requests.json</a></p>
           </div>
           <div class="download">
             <h3>Request timelines</h3>
             <p>Every event of each listed request, in order: what the agency did, what WPR did, and when. Join on ref.</p>
-            <a href="data/request_events.csv" download>request_events.csv</a><a href="data/request_events.json">request_events.json</a>
+            <p class="links"><a href="data/request_events.csv" download>request_events.csv</a><a href="data/request_events.json">request_events.json</a></p>
           </div>
           <div class="download">
             <h3>Rules and holidays</h3>
             <p>When the data was built, the earliest filing it covers, the values in law.py and the holiday list.</p>
-            <a href="data/meta.json">meta.json</a><a href="law.py">law.py</a>
+            <p class="links"><a href="data/meta.json">meta.json</a><a href="law.py">law.py</a></p>
           </div>
         </div>
       </section>

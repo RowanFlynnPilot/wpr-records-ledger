@@ -28,6 +28,7 @@ export function el(tag, attrs = {}, ...children) {
 }
 
 export const fmtInt = (n) => n.toLocaleString("en-US");
+export const plural = (n, one, many) => (n === 1 ? one : many);
 
 export function fmtDate(iso, opts = { month: "short", day: "numeric", year: "numeric" }) {
   const [y, m, d] = iso.split("-").map(Number);

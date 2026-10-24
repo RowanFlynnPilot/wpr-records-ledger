@@ -1,8 +1,8 @@
 import { agencyCard } from "./cards.js";
 import { LEAD } from "./config.js";
 import {
-  benchmarkLabel, el, EVENT_LABELS, fmtCents, fmtDate, fmtDateTime, fmtInt, loadJSON, loadText, showError,
-  STATUS_LABELS, doneLoading, warnIfStale,
+  benchmarkLabel, el, EVENT_LABELS, fmtCents, fmtDate, fmtDateTime, fmtInt, loadJSON, loadText, plural,
+  showError, STATUS_LABELS, doneLoading, warnIfStale,
 } from "./common.js";
 
 const main = document.querySelector("main");
@@ -29,31 +29,45 @@ function auditRounds(requests) {
 function fillLead(container, html, scorecard, meta, rounds) {
   container.innerHTML = html;   // a fragment from this site's own leads/, never data
   const sum = (k) => scorecard.reduce((t, a) => t + a[k], 0);
+  const counts = { requests: sum("requests"), agencies: scorecard.length, open: sum("open"),
+                   denials: sum("denials"), denials_without_reasons: sum("denials_without_reasons") };
   const values = {
-    requests: fmtInt(sum("requests")),
-    agencies: fmtInt(scorecard.length),
-    open: fmtInt(sum("open")),
-    denials: fmtInt(sum("denials")),
-    denials_without_reasons: fmtInt(sum("denials_without_reasons")),
-    earliest: meta.earliest_filed_on ? fmtDate(meta.earliest_filed_on, { month: "long", year: "numeric" }) : "—",
+    ...Object.fromEntries(Object.entries(counts).map(([k, n]) => [k, fmtInt(n)])),
+    since: meta.earliest_filed_on
+      ? ` since ${fmtDate(meta.earliest_filed_on, { month: "long", year: "numeric" })}` : "",
     audit_summary: latestRound(rounds)
       ? `Latest round, ${roundSummary(latestRound(rounds), rounds[latestRound(rounds)])}.`
       : "The first round's results will appear here once they are published.",
   };
   for (const slot of container.querySelectorAll("[data-fill]")) slot.textContent = values[slot.dataset.fill];
+  for (const label of container.querySelectorAll("[data-count]")) {
+    label.textContent = plural(counts[label.dataset.count], label.dataset.one, label.dataset.many);
+  }
 }
 
 function feeCell(cents, label) {
   return el("td", { class: "num", "data-label": label }, cents === null ? "—" : cents === 0 ? "Waived" : fmtCents(cents));
 }
 
+// A reason pasted from a letter can run to pages: show its start, the rest on request.
+const REASON_PREVIEW = 240;
+
+function stateReason(reason) {
+  if (reason === null) return "No reason stated. ";
+  if (reason.length <= REASON_PREVIEW) return `Stated reason: “${reason}” `;
+  const cut = reason.lastIndexOf(" ", REASON_PREVIEW);
+  const start = reason.slice(0, cut > 0 ? cut : REASON_PREVIEW);
+  return el("details", { class: "reason" },
+    el("summary", {}, `Stated reason: “${start}…” `, el("span", { class: "reason-more" }, "Read all")),
+    el("p", {}, `“${reason}”`));
+}
+
 function denialNote(r) {
   if (!["denied", "partially_denied", "denial_reversed"].includes(r.status)) return null;
-  const reason = r.denial_reason === null ? "No reason stated." : `Stated reason: “${r.denial_reason}”`;
   const notice = r.remedy_notice ? "Gave notice of appeal rights." : "No notice of appeal rights.";
   // s. 19.35(4)(b): an oral request is owed written reasons only on demand, and no notice.
   const oral = r.channel === "oral" ? " An oral request: neither was required." : "";
-  return el("div", { class: "denial" }, `${reason} ${notice}${oral}`);
+  return el("div", { class: "denial" }, stateReason(r.denial_reason), `${notice}${oral}`);
 }
 
 const latestRound = (rounds) => Object.keys(rounds).sort().reverse()[0];
@@ -99,7 +113,7 @@ function renderTrend(rounds) {
     return el("td", { class: "num" }, rows.map((r) => {
       const label = r.status === "open" ? "open" : benchmarkLabel(r.benchmark_result).toLowerCase();
       return el("span", { class: r.benchmark_result === false ? "trend-entry bench-missed" : "trend-entry" },
-        el("span", { class: "trend-days" }, `${fmtInt(r.held_wd)} days`), el("span", { class: "trend-note" }, label));
+        el("span", { class: "trend-days" }, `${fmtInt(r.held_wd)} ${plural(r.held_wd, "day", "days")}`), el("span", { class: "trend-note" }, label));
     }));
   };
   document.getElementById("trend-rows").replaceChildren(...agencies.map((agency) => el("tr", {},
@@ -131,22 +145,33 @@ function requestRow(r, events) {
     feeCell(r.fees_paid_cents, "Fee paid"));
 }
 
+// Years of requests would make one very long page: show them a page at a time.
+const PAGE = 25;
+
 function renderRequests(requests, events) {
   const byRef = {};
   for (const e of events) (byRef[e.ref] ??= []).push(e);
   const select = document.getElementById("agency-filter");
   const body = document.getElementById("request-rows");
   const shown = document.getElementById("shown");
+  const more = document.getElementById("more");
   for (const agency of [...new Set(requests.map((r) => r.agency))].sort()) {
     select.append(el("option", { value: agency }, agency));
   }
+  let limit = PAGE;
   const draw = () => {
     const rows = requests.filter((r) => !select.value || r.agency === select.value);
-    body.replaceChildren(...(rows.length ? rows.map((r) => requestRow(r, byRef[r.ref]))
+    const visible = rows.slice(0, limit);
+    body.replaceChildren(...(rows.length ? visible.map((r) => requestRow(r, byRef[r.ref]))
       : [el("tr", {}, el("td", { colspan: "8", class: "empty" }, "No listed requests yet."))]));
-    shown.textContent = `${fmtInt(rows.length)} of ${fmtInt(requests.length)} listed requests`;
+    shown.textContent = `${fmtInt(visible.length)} of ${fmtInt(rows.length)} ` +
+      plural(rows.length, "listed request", "listed requests") + (select.value ? ` at ${select.value}` : "");
+    const left = rows.length - visible.length;
+    more.hidden = left === 0;
+    more.textContent = `Show ${fmtInt(Math.min(PAGE, left))} more (${fmtInt(left)} not shown)`;
   };
-  select.addEventListener("change", draw);
+  select.addEventListener("change", () => { limit = PAGE; draw(); });
+  more.addEventListener("click", () => { limit += PAGE; draw(); });
   draw();
 }
 
@@ -161,7 +186,9 @@ async function start() {
   for (const n of document.querySelectorAll(".min-n")) n.textContent = meta.law.MIN_N_FOR_RATES;
   const rounds = auditRounds(requests);
   fillLead(document.getElementById("lead"), leadHtml, scorecard, meta, rounds);
-  document.getElementById("cards").replaceChildren(...scorecard.map((a) => agencyCard(a, meta.law)));
+  document.getElementById("cards").replaceChildren(...(scorecard.length ? scorecard.map((a) => agencyCard(a, meta.law))
+    : [el("p", { class: "empty-note" }, "No agency has published figures yet. A request enters them once it is " +
+          `listed, or once it is ${meta.law.STATS_ONLY_EMBARGO_DAYS} days old.`)]));
   renderAudit(rounds);
   renderRequests(requests, events);
   doneLoading();

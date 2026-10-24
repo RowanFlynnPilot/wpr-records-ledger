@@ -22,3 +22,6 @@ backfill/
 
 # Hypothesis example database
 .hypothesis/
+
+# Stress-test builds (scripts/stress_site.py)
+site-stress/
