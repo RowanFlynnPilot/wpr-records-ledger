@@ -111,17 +111,23 @@ def paid_cents(events: list[dict]) -> int | None:
 
 
 def derive(r: dict, as_of: date) -> dict:
-    """One request's measured values, all from law.py."""
+    """One request's measured values, all from law.py.
+
+    A request the metrics don't count yet is measured not at all, so an agency
+    needs a holiday list only once one of its requests is published.
+    """
     events = r["events"]
-    final = law.final_event(events)
+    if not law.counts_in_metrics(r["visibility"], r["filed_on"], events, as_of):
+        return {**r, "counted": False}
+    agency, final = r["agency"], law.final_event(events)
     return {
         **r,
-        "counted": law.counts_in_metrics(r["visibility"], r["filed_on"], events, as_of),
+        "counted": True,
         "final": final,
         "status": law.status(events),
-        "held_wd": law.held_working_days(r["filed_on"], events, as_of),
-        "benchmark_result": law.benchmark_result(r["complexity"], r["filed_on"], events, as_of),
-        "in_median": law.counts_in_median(r["complexity"], r["filed_on"], events, as_of),
+        "held_wd": law.held_working_days(agency, r["filed_on"], events, as_of),
+        "benchmark_result": law.benchmark_result(agency, r["complexity"], r["filed_on"], events, as_of),
+        "in_median": law.counts_in_median(agency, r["complexity"], r["filed_on"], events, as_of),
         "denial": final if final and final["event_type"] in law.DENIALS else None,
     }
 

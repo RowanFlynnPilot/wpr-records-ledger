@@ -17,7 +17,7 @@ from tests.synthetic import AS_OF, ev  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def test_holidays(monkeypatch):
-    monkeypatch.setattr(law, "HOLIDAYS", dict(synthetic.TEST_HOLIDAYS))
+    monkeypatch.setattr(law, "HOLIDAYS", synthetic.holiday_lists("Floor Agency", "Fee Agency"))
 
 
 def derived(requests=synthetic.REQUESTS, as_of=AS_OF):
@@ -48,7 +48,8 @@ def test_meta():
     assert doc["as_of"] == "2026-12-15"
     assert doc["earliest_filed_on"] == synthetic.EXPECTED_EARLIEST_FILED_ON
     assert doc["law"]["MIN_N_FOR_RATES"] == 5
-    assert doc["law"]["HOLIDAYS"]["2026"][4:6] == ["2026-11-26", "2026-11-27"]
+    assert doc["law"]["HOLIDAYS"][synthetic.CITY]["2026"][4:6] == ["2026-11-26", "2026-11-27"]
+    assert "2026-11-27" not in doc["law"]["HOLIDAYS"][synthetic.DISTRICT]["2026"]
 
 
 def test_embargoed_and_private_requests_count_nowhere():
@@ -63,7 +64,7 @@ def test_embargoed_and_private_requests_count_nowhere():
 
 
 def test_embargo_lifts_at_90_days(monkeypatch):
-    monkeypatch.setitem(law.HOLIDAYS, 2027, frozenset())
+    monkeypatch.setitem(law.HOLIDAYS[synthetic.CITY], 2027, frozenset())
     r12 = next(r for r in synthetic.REQUESTS if r["key"] == "R12")   # filed 12/7, open
     inside = export.scorecard(derived([r12], as_of=date(2027, 3, 6)))   # 89 days
     past = export.scorecard(derived([r12], as_of=date(2027, 3, 7)))     # 90 days
@@ -113,9 +114,21 @@ def test_valid_synthetic_data_passes_validation():
 
 
 def test_missing_holiday_year_stops_the_export(monkeypatch):
-    monkeypatch.setattr(law, "HOLIDAYS", {2026: synthetic.TEST_HOLIDAYS[2026]})
+    monkeypatch.setattr(law, "HOLIDAYS", {agency: {2026: years[2026]}
+                                          for agency, years in synthetic.TEST_HOLIDAYS.items()})
     with pytest.raises(KeyError, match="2027"):
         derived(as_of=date(2027, 1, 5))
+
+
+def test_holiday_lists_are_needed_only_for_counted_requests():
+    # The village has none, yet its private and embargoed requests export fine.
+    assert synthetic.VILLAGE not in law.HOLIDAYS
+    export.scorecard(derived())
+    # The day one of its requests counts, the export stops until the editor sets one.
+    closed = [dict(r, events=r["events"] + [ev("fulfilled", 12, 14)]) if r["key"] == "V2" else r
+              for r in synthetic.REQUESTS]
+    with pytest.raises(KeyError, match="No holiday list for Village of Sample"):
+        derived(closed)
 
 
 def test_location_fee_counts_requests_not_revised_quotes():

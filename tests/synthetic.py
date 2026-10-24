@@ -10,21 +10,42 @@ from datetime import date
 
 AS_OF = date(2026, 12, 15)   # a Tuesday
 
-# Test-only holiday lists, not the editor's: federal-style closures.
-TEST_HOLIDAYS = {
-    2025: frozenset(date.fromisoformat(d) for d in (
-        "2025-01-01", "2025-05-26", "2025-07-04", "2025-09-01",
-        "2025-11-27", "2025-11-28", "2025-12-24", "2025-12-25")),
-    2026: frozenset(date.fromisoformat(d) for d in (
-        "2026-01-01", "2026-05-25", "2026-07-03", "2026-09-07",
-        "2026-11-26", "2026-11-27", "2026-12-24", "2026-12-25")),
-}
-
 CITY = "City of Testville"
 DISTRICT = "Testville School District"
 VILLAGE = "Village of Sample (SENTINEL)"   # only private and embargoed requests: never published
 COUNTY = "Sample County (SENTINEL)"        # no requests: never published
 AGENCIES = (CITY, DISTRICT, VILLAGE, COUNTY)
+
+
+def _days(*isos: str) -> frozenset[date]:
+    return frozenset(date.fromisoformat(d) for d in isos)
+
+
+# Test-only holiday lists, not the editor's. The district's differ from the
+# city's: Good Friday off, the day after Thanksgiving open. The village and
+# county have none, since nothing of theirs is counted.
+TEST_HOLIDAYS = {
+    CITY: {
+        2025: _days("2025-01-01", "2025-05-26", "2025-07-04", "2025-09-01",
+                    "2025-11-27", "2025-11-28", "2025-12-24", "2025-12-25"),
+        2026: _days("2026-01-01", "2026-05-25", "2026-07-03", "2026-09-07",
+                    "2026-11-26", "2026-11-27", "2026-12-24", "2026-12-25"),
+    },
+    DISTRICT: {
+        2025: _days("2025-01-01", "2025-04-18", "2025-05-26", "2025-07-04", "2025-09-01",
+                    "2025-11-27", "2025-12-24", "2025-12-25"),
+        2026: _days("2026-01-01", "2026-04-03", "2026-05-25", "2026-07-03", "2026-09-07",
+                    "2026-11-26", "2026-12-24", "2026-12-25"),
+    },
+}
+
+
+def holiday_lists(*extra_agencies: str) -> dict:
+    """A fresh copy of TEST_HOLIDAYS, with extra agencies given the city's list."""
+    holidays = {agency: dict(years) for agency, years in TEST_HOLIDAYS.items()}
+    for agency in extra_agencies:
+        holidays[agency] = dict(TEST_HOLIDAYS[CITY])
+    return holidays
 
 DENIAL_REASON = "Records are part of an open investigation; the public interest in nondisclosure outweighs disclosure."
 

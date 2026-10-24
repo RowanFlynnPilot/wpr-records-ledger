@@ -71,8 +71,11 @@ Use `127.0.0.1`, not `localhost`: on this machine `localhost` tries IPv6 first a
 Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Government/PRL_guide.pdf); [DOJ fee schedule (June 2025)](https://www.wisdoj.gov/Open%20Government/Public%20Records%20Request%20Fee%20Schedule%20June%202025.pdf); [s. 19.356 (2011)](https://law.justia.com/codes/wisconsin/2011/19/19.356.html); [TMJ4 on Frame Park](https://www.tmj4.com/news/local-news/wisconsin-courts-open-records-ruling-decried-as-gutting-law).
 
 ## Clock and benchmark rules (`law.py`)
-- **Working days.** `working_days(start, end)` counts weekdays from the filing day up to, but not including, the end day. It skips `HOLIDAYS[year]`, a list the editor sets and the page prints.
-  - It raises for a missing year, so **2024, 2025 and 2026 must be set before the backfill export.**
+- **Working days.** `working_days(agency, start, end)` counts the agency's weekdays from the filing day up to, but not including, the end day. It skips `HOLIDAYS[agency][year]`, lists the editor sets and the page prints. Every clock function (`agency_working_days`, `held_working_days`, `benchmark_result`, `counts_in_median`) takes the agency first.
+  - `HOLIDAYS` is keyed by the agency's name exactly as in the `agencies` table, then by year. The audit agencies disagree on 14+ dates in 2024–26 (Good Friday, New Year's Eve, MLK Day, Kronenwetter's 2025 swaps), so one shared list would miscount. Research and sources: `docs/holiday-research-2024-2026.md`.
+  - It raises for a missing agency or year, so **every agency with a counted request needs 2024, 2025 and 2026 before the backfill export.**
+  - Only counted requests are measured, so an agency needs a list once one of its requests is closed, 90 days old or public, not before. That night's export stops until the list is set.
+  - **Every agency in `HOLIDAYS` is published**, since the methodology page prints `law.py` in full. Adding an agency's list early can reveal a fresh request to it; for the audit custodians that's no risk.
   - Uses the standard library only.
 - **Held working days.** `held_working_days()` counts from filing to the **first terminal event** (`fulfilled`, `partially_denied`, `denied`, `no_records` or `withdrawn`), or to today while open.
   - It skips the days the agency was waiting on WPR: from `clarification_requested` to `clarification_sent`, and from `fee_quoted` to `fee_paid` or `fee_disputed`.
@@ -97,7 +100,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
 - **Denial checks.** `denial_lacks_reasons()` and `denial_lacks_remedy_notice()` apply to the final response of **written** requests only: s. 19.35(4)(b) requires reasons and the remedy notice for written requests, and an oral request's denial owes written reasons only on demand.
 - **Location fee.** `location_fee_below_threshold()`: an itemized quote with 0 < `location_cents` < `LOCATION_FEE_THRESHOLD_CENTS`.
 - **Floor.** `shows_rate(n)`: n >= `MIN_N_FOR_RATES`.
-- **Holidays.** Each year needs `HOLIDAYS[year]` before its first export day: **set 2027 before Jan. 1, 2027**, or the nightly export stops.
+- **Holidays.** Each agency with a counted request needs `HOLIDAYS[agency][year]` before the year's first export day: **set 2027 for every such agency before Jan. 1, 2027**, or the nightly export stops.
 - **Embargo.** `counts_in_metrics()` holds `stats_only` requests out until they are closed or 90 days old, so a nightly count can't reveal a fresh request tied to an unpublished story.
 
 ## Metrics (`export.py`)
@@ -116,7 +119,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
 - `scorecard.json` and `.csv`: by agency, with exactly these fields: `agency`, `requests`, `open`, `simple_n`, `complex_n`, `unclassified_n`, `median_held_wd_simple`, `median_n`, `benchmark_met_share`, `benchmark_n`, `denials`, `denials_without_reasons`, `denials_missing_remedy_notice`, `no_records`, `location_fee_under_50`, `subject_notice_n`, `appeals`
 - `requests.json` and `.csv`: public requests only, newest first, with whitelisted fields `agency`, `filed_on`, `public_subject`, `status`, `held_wd`, `benchmark_result`, `fees_quoted_cents`, `fees_paid_cents`, `denial_reason`, `remedy_notice`. Never export `records_sought`, `note`, `document_url`, `filed_by`, `complexity_set_by` or `custodian_email`.
   - `status`: `law.status()`. `fees_quoted_cents`: the latest quote (a revised quote replaces the earlier one), or null. `fees_paid_cents`: the sum of `fee_paid` amounts (0 = waived), or null. `denial_reason` and `remedy_notice`: from the final response when it is a denial, else null.
-- `meta.json`: `generated_at`, `as_of` (the day open requests are measured to), `earliest_filed_on` (over counted requests only), and `law` (`law.published_values()`: the four constants and the holiday list)
+- `meta.json`: `generated_at`, `as_of` (the day open requests are measured to), `earliest_filed_on` (over counted requests only), and `law` (`law.published_values()`: the four constants and the holiday lists, by agency then year)
 - The site directory also carries `law.py` itself, which the methodology page prints.
 - CSV: booleans `true`/`false`, null empty, UTF-8.
 
@@ -126,7 +129,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
    - If most agencies fall under 5 simple requests, lead with the quarterly audit and a narrative story, not a scorecard.
 1. **Stand up the database.**
    - Create a Supabase project, apply `schema.sql`, run `tests.sql`, and give `ledger_export` a login password.
-   - Set `law.HOLIDAYS` for 2024–26.
+   - Set `law.HOLIDAYS` for 2024–26, one list per agency.
    - Backfill the counted requests.
 2. **Quarterly audit.** File the Q3 2026 round from the Closed Door Ledger's `audit.py` list, one request per custodian with identical wording.
 3. **Export** (`export.py` and `tests/test_export.py`). Test fixtures must cover:
@@ -136,7 +139,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
    - an itemized location fee under $50
    - an agency below the floor
    - a `stats_only` request inside the embargo
-4. **Site:** agency cards with n, a public request list, CSV downloads, and a methodology page that prints `law.py` and the holiday list.
+4. **Site:** agency cards with n, a public request list, CSV downloads, and a methodology page that prints `law.py` and each agency's holiday list.
    - The home page's lead is one block in `web/leads/` (`scorecard.html` or `audit.html`), chosen by `LEAD` in `web/config.js`. Phase 0 decides it.
 5. **Staff intake form**, only if Table Editor logging becomes a bottleneck.
 

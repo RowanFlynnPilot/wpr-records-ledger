@@ -15,10 +15,13 @@ LOCATION_FEE_THRESHOLD_CENTS = 5000   # s. 19.35(3)(c): location fees only if lo
 MIN_N_FOR_RATES = 5                   # below this n, show the count only, no median or share
 STATS_ONLY_EMBARGO_DAYS = 90          # stats_only requests count once closed or this old
 
-# Days agency offices are closed, set by the editor and printed on the
-# methodology page. working_days() refuses any year missing from this map, so
-# 2024, 2025 and 2026 must be filled in before the backfill export.
-HOLIDAYS: dict[int, frozenset[date]] = {}
+# Days each agency's offices are closed, keyed by the agency's name exactly as
+# in the agencies table, then by year. Set by the editor and printed on the
+# methodology page. Agencies close on different days (Good Friday, New Year's
+# Eve, MLK Day), so each has its own list. working_days() refuses an agency or
+# year missing from this map: every agency with a counted request needs 2024,
+# 2025 and 2026 before the backfill export, and each new year before Jan. 1.
+HOLIDAYS: dict[str, dict[int, frozenset[date]]] = {}
 
 # ── Event classes ─────────────────────────────────────────────────────────────
 AGENCY_TERMINAL = frozenset({"fulfilled", "partially_denied", "denied", "no_records"})
@@ -49,20 +52,23 @@ class InvalidRequest(ValueError):
     pass
 
 
-def _require_holidays(start: date, end: date) -> None:
+def _holidays(agency: str, start: date, end: date) -> dict[int, frozenset[date]]:
+    if agency not in HOLIDAYS:
+        raise KeyError(f"No holiday list for {agency}: set law.HOLIDAYS[{agency!r}]")
     for year in range(start.year, end.year + 1):
-        if year not in HOLIDAYS:
-            raise KeyError(f"No holiday list for {year}: set law.HOLIDAYS[{year}]")
+        if year not in HOLIDAYS[agency]:
+            raise KeyError(f"No {year} holiday list for {agency}: set law.HOLIDAYS[{agency!r}][{year}]")
+    return HOLIDAYS[agency]
 
 
-def working_days(start: date, end: date, excluded: frozenset[date] = frozenset()) -> int:
-    """Working days from `start` up to, not including, `end`."""
+def working_days(agency: str, start: date, end: date, excluded: frozenset[date] = frozenset()) -> int:
+    """The agency's working days from `start` up to, not including, `end`."""
     if end < start:
         raise ValueError(f"end {end} is before start {start}")
-    _require_holidays(start, end)
+    holidays = _holidays(agency, start, end)
     count, day = 0, start
     while day < end:
-        if day.weekday() < 5 and day not in HOLIDAYS[day.year] and day not in excluded:
+        if day.weekday() < 5 and day not in holidays[day.year] and day not in excluded:
             count += 1
         day += timedelta(days=1)
     return count
@@ -140,7 +146,7 @@ def status(events: list[dict]) -> str:
     return final["event_type"] if final else "open"
 
 
-def agency_working_days(filed_on: date, events: list[dict], until: date) -> int:
+def agency_working_days(agency: str, filed_on: date, events: list[dict], until: date) -> int:
     """Working days the agency held the request between filing and `until`,
     minus the days it was waiting on WPR. Each answer ends the pause that was
     open when it arrived; a repeated ask while one is open extends that pause."""
@@ -161,15 +167,15 @@ def agency_working_days(filed_on: date, events: list[dict], until: date) -> int:
             pause(opened.pop(_PAUSE_OF_END[kind]), e["event_on"])
     for start in opened.values():
         pause(start, until)
-    return working_days(filed_on, until, frozenset(paused))
+    return working_days(agency, filed_on, until, frozenset(paused))
 
 
-def held_working_days(filed_on: date, events: list[dict], as_of: date) -> int:
+def held_working_days(agency: str, filed_on: date, events: list[dict], as_of: date) -> int:
     """Working days held: to the first terminal event, or to `as_of` while open."""
-    return agency_working_days(filed_on, events, clock_stop(events) or as_of)
+    return agency_working_days(agency, filed_on, events, clock_stop(events) or as_of)
 
 
-def benchmark_result(complexity: str | None, filed_on: date, events: list[dict],
+def benchmark_result(agency: str, complexity: str | None, filed_on: date, events: list[dict],
                      as_of: date) -> bool | None:
     """Did a request meet the 10-working-day benchmark?
 
@@ -188,14 +194,14 @@ def benchmark_result(complexity: str | None, filed_on: date, events: list[dict],
     notice = next((e["event_on"] for e in _sorted(events) if e["event_type"] == "subject_notice_sent"
                    and (final is None or e["event_on"] <= final["event_on"])), None)
     if notice is not None:
-        return False if agency_working_days(filed_on, events, notice) > benchmark else None
-    held = agency_working_days(filed_on, events, final["event_on"] if final else as_of)
+        return False if agency_working_days(agency, filed_on, events, notice) > benchmark else None
+    held = agency_working_days(agency, filed_on, events, final["event_on"] if final else as_of)
     if final is None or final["event_type"] == "withdrawn":
         return False if held > benchmark else None
     return held <= benchmark
 
 
-def counts_in_median(complexity: str | None, filed_on: date, events: list[dict],
+def counts_in_median(agency: str, complexity: str | None, filed_on: date, events: list[dict],
                      as_of: date) -> bool:
     """Whether a request's held days enter the simple-request median.
 
@@ -207,7 +213,7 @@ def counts_in_median(complexity: str | None, filed_on: date, events: list[dict],
     final = final_event(events)
     return (complexity == "simple" and final is not None
             and final["event_type"] in AGENCY_TERMINAL
-            and benchmark_result(complexity, filed_on, events, as_of) is not None)
+            and benchmark_result(agency, complexity, filed_on, events, as_of) is not None)
 
 
 def denial_lacks_reasons(channel: str, response: dict | None) -> bool:
@@ -240,8 +246,9 @@ def published_values() -> dict:
         "LOCATION_FEE_THRESHOLD_CENTS": LOCATION_FEE_THRESHOLD_CENTS,
         "MIN_N_FOR_RATES": MIN_N_FOR_RATES,
         "STATS_ONLY_EMBARGO_DAYS": STATS_ONLY_EMBARGO_DAYS,
-        "HOLIDAYS": {str(year): sorted(d.isoformat() for d in days)
-                     for year, days in sorted(HOLIDAYS.items())},
+        "HOLIDAYS": {agency: {str(year): sorted(d.isoformat() for d in days)
+                              for year, days in sorted(years.items())}
+                     for agency, years in sorted(HOLIDAYS.items())},
     }
 
 

@@ -146,7 +146,10 @@ thead th.num { white-space: normal; }
 .prose { max-width: 46rem; }
 .prose li { margin-bottom: 0.4rem; }
 .values td:first-child { font-family: var(--mono); font-size: 0.82rem; }
-.holidays { columns: 3 12rem; font-family: var(--mono); font-size: 0.82rem; padding-left: 1.1rem; }
+.holidays { columns: 3 12rem; font-family: var(--mono); font-size: 0.82rem; padding-left: 1.1rem; margin: 0 0 0.75rem; }
+.holiday-agency { background: var(--white); border: 1px solid var(--line); padding: 0.7rem 1rem; margin-bottom: 0.6rem; }
+.holiday-agency summary { cursor: pointer; font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
+.holiday-agency h4 { font-family: var(--mono); font-size: 0.8rem; margin: 0.75rem 0 0.3rem; }
 .warning { color: var(--rust-text); font-weight: 500; }
 pre.source {
   background: var(--white); border: 1px solid var(--line); padding: 1rem;

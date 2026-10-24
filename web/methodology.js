@@ -7,17 +7,20 @@ const DESCRIPTIONS = {
   STATS_ONLY_EMBARGO_DAYS: "Days before an open, unlisted request enters the figures",
 };
 
+// One collapsible list per agency: each skips its own closures.
 function renderHolidays(container, holidays) {
-  const years = Object.keys(holidays);
-  if (!years.length) {
+  const agencies = Object.keys(holidays);
+  if (!agencies.length) {
     container.replaceChildren(el("p", { class: "warning" }, "No holiday list has been set."));
     return;
   }
-  container.replaceChildren(...years.flatMap((year) => [
-    el("h3", {}, year),
-    el("ul", { class: "holidays" },
-      holidays[year].map((d) => el("li", {}, fmtDate(d, { weekday: "short", month: "short", day: "numeric", year: "numeric" })))),
-  ]));
+  container.replaceChildren(...agencies.map((agency) => el("details", { class: "holiday-agency" },
+    el("summary", {}, agency),
+    Object.entries(holidays[agency]).flatMap(([year, days]) => [
+      el("h4", {}, year),
+      el("ul", { class: "holidays" },
+        days.map((d) => el("li", {}, fmtDate(d, { weekday: "short", month: "short", day: "numeric", year: "numeric" })))),
+    ]))));
 }
 
 async function start() {

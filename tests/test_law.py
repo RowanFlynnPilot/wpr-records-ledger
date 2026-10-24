@@ -9,7 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import law  # noqa: E402
 
 # Test-only holiday list: Thanksgiving and the day after, 2026.
-law.HOLIDAYS[2026] = frozenset({date(2026, 11, 26), date(2026, 11, 27)})
+A = "Test Agency"
+law.HOLIDAYS[A] = {2026: frozenset({date(2026, 11, 26), date(2026, 11, 27)})}
 LATER = date(2026, 12, 15)
 
 
@@ -18,68 +19,77 @@ def ev(event_type, m, d):
 
 
 def test_working_days_basic():
-    assert law.working_days(date(2026, 10, 19), date(2026, 10, 20)) == 1   # Mon -> Tue
-    assert law.working_days(date(2026, 10, 16), date(2026, 10, 19)) == 1   # Fri -> Mon
-    assert law.working_days(date(2026, 11, 25), date(2026, 11, 30)) == 1   # over Thanksgiving + Friday
+    assert law.working_days(A, date(2026, 10, 19), date(2026, 10, 20)) == 1   # Mon -> Tue
+    assert law.working_days(A, date(2026, 10, 16), date(2026, 10, 19)) == 1   # Fri -> Mon
+    assert law.working_days(A, date(2026, 11, 25), date(2026, 11, 30)) == 1   # over Thanksgiving + Friday
 
 
 def test_missing_holiday_year_fails_fast():
-    with pytest.raises(KeyError):
-        law.working_days(date(2027, 1, 4), date(2027, 1, 5))
+    with pytest.raises(KeyError, match="No 2027 holiday list for Test Agency"):
+        law.working_days(A, date(2027, 1, 4), date(2027, 1, 5))
+    with pytest.raises(KeyError, match="No holiday list for Unlisted Agency"):
+        law.working_days("Unlisted Agency", date(2026, 10, 19), date(2026, 10, 20))
+
+
+def test_each_agency_skips_its_own_holidays(monkeypatch):
+    # Same request, same days: an agency open the day after Thanksgiving held it one day longer.
+    monkeypatch.setitem(law.HOLIDAYS, "Open Friday", {2026: frozenset({date(2026, 11, 26)})})
+    assert law.working_days(A, date(2026, 11, 23), date(2026, 11, 30)) == 3
+    assert law.working_days("Open Friday", date(2026, 11, 23), date(2026, 11, 30)) == 4
 
 
 def test_clarification_pause_is_not_counted():
     # Filed Mon 10/19; agency asks Tue 10/20; WPR answers Thu 10/22; fulfilled Mon 10/26.
     events = [ev("clarification_requested", 10, 20), ev("clarification_sent", 10, 22), ev("fulfilled", 10, 26)]
-    assert law.held_working_days(date(2026, 10, 19), events, LATER) == 3   # Mon 19, Thu 22, Fri 23
+    assert law.held_working_days(A, date(2026, 10, 19), events, LATER) == 3   # Mon 19, Thu 22, Fri 23
 
 
 def test_fee_pause_ends_at_payment_or_dispute():
     paid = [ev("fee_quoted", 10, 21), ev("fee_paid", 10, 28), ev("fulfilled", 10, 29)]
-    assert law.held_working_days(date(2026, 10, 19), paid, LATER) == 3      # Mon 19, Tue 20, Wed 28
+    assert law.held_working_days(A, date(2026, 10, 19), paid, LATER) == 3      # Mon 19, Tue 20, Wed 28
     disputed = [ev("fee_quoted", 10, 21), ev("fee_disputed", 10, 22), ev("fulfilled", 11, 13)]
     # Paused only Wed 10/21; counts 10/19-20 and 10/22-11/12
-    assert law.held_working_days(date(2026, 10, 19), disputed, LATER) == 18
+    assert law.held_working_days(A, date(2026, 10, 19), disputed, LATER) == 18
 
 
 def test_interim_release_does_not_stop_the_clock():
     events = [ev("records_released", 10, 21), ev("fulfilled", 11, 30)]
-    assert law.held_working_days(date(2026, 10, 19), events, LATER) > law.SIMPLE_REQUEST_BENCHMARK_WD
-    assert law.benchmark_result("simple", date(2026, 10, 19), events, LATER) is False
+    assert law.held_working_days(A, date(2026, 10, 19), events, LATER) > law.SIMPLE_REQUEST_BENCHMARK_WD
+    assert law.benchmark_result(A, "simple", date(2026, 10, 19), events, LATER) is False
 
 
 def test_withdrawn_stops_the_clock():
     events = [ev("withdrawn", 10, 21)]
-    assert law.held_working_days(date(2026, 10, 19), events, LATER) == 2
-    assert law.benchmark_result("simple", date(2026, 10, 19), events, LATER) is None
+    assert law.held_working_days(A, date(2026, 10, 19), events, LATER) == 2
+    assert law.benchmark_result(A, "simple", date(2026, 10, 19), events, LATER) is None
     late = [ev("withdrawn", 11, 20)]                                        # withdrawn after a month of silence
-    assert law.benchmark_result("simple", date(2026, 10, 19), late, LATER) is False
+    assert law.benchmark_result(A, "simple", date(2026, 10, 19), late, LATER) is False
 
 
 def test_benchmark_rules():
     filed = date(2026, 10, 1)
-    assert law.benchmark_result("simple", filed, [ev("fulfilled", 10, 8)], LATER) is True
-    assert law.benchmark_result("simple", filed, [ev("fulfilled", 10, 30)], LATER) is False
-    assert law.benchmark_result("simple", filed, [ev("denied", 10, 8)], LATER) is True     # a denial is a response
-    assert law.benchmark_result("complex", filed, [ev("fulfilled", 10, 30)], LATER) is None
-    assert law.benchmark_result(None, filed, [ev("fulfilled", 10, 30)], LATER) is None
+    assert law.benchmark_result(A, "simple", filed, [ev("fulfilled", 10, 8)], LATER) is True
+    assert law.benchmark_result(A, "simple", filed, [ev("fulfilled", 10, 30)], LATER) is False
+    assert law.benchmark_result(A, "simple", filed, [ev("denied", 10, 8)], LATER) is True     # a denial is a response
+    assert law.benchmark_result(A, "complex", filed, [ev("fulfilled", 10, 30)], LATER) is None
+    assert law.benchmark_result(A, None, filed, [ev("fulfilled", 10, 30)], LATER) is None
     # open: not judged inside the benchmark, a miss past it
-    assert law.benchmark_result("simple", filed, [], as_of=date(2026, 10, 6)) is None
-    assert law.benchmark_result("simple", filed, [], as_of=date(2026, 10, 30)) is False
+    assert law.benchmark_result(A, "simple", filed, [], as_of=date(2026, 10, 6)) is None
+    assert law.benchmark_result(A, "simple", filed, [], as_of=date(2026, 10, 30)) is False
 
 
 def test_subject_notice():
     filed = date(2026, 10, 1)
     early = [ev("subject_notice_sent", 10, 5), ev("fulfilled", 10, 30)]
-    assert law.benchmark_result("simple", filed, early, LATER) is None       # statute bars release; not judged
+    assert law.benchmark_result(A, "simple", filed, early, LATER) is None       # statute bars release; not judged
     late = [ev("subject_notice_sent", 10, 26), ev("fulfilled", 11, 13)]
-    assert law.benchmark_result("simple", filed, late, LATER) is False       # already past 10 days at the notice
+    assert law.benchmark_result(A, "simple", filed, late, LATER) is False       # already past 10 days at the notice
     # A notice before a batch released after the final response doesn't bear on it.
     after_final = [ev("partially_denied", 10, 5), ev("subject_notice_sent", 11, 2), ev("records_released", 11, 20)]
-    assert law.benchmark_result("simple", filed, after_final, LATER) is True
-    assert law.counts_in_median("simple", filed, after_final, LATER) is True
+    assert law.benchmark_result(A, "simple", filed, after_final, LATER) is True
+    assert law.counts_in_median(A, "simple", filed, after_final, LATER) is True
     same_day = [ev("fulfilled", 10, 26), ev("subject_notice_sent", 10, 26)]
-    assert law.benchmark_result("simple", filed, same_day, LATER) is False   # notice sorts first: 17 days in
+    assert law.benchmark_result(A, "simple", filed, same_day, LATER) is False   # notice sorts first: 17 days in
 
 
 def test_validate():
@@ -116,7 +126,7 @@ def test_each_pause_must_be_answered_even_when_both_are_open():
     both_answered = [ev("clarification_requested", 10, 2), ev("fee_quoted", 10, 5),
                      ev("fee_paid", 10, 6), ev("clarification_sent", 10, 7), ev("fulfilled", 10, 9)]
     law.validate(filed, both_answered, LATER)
-    assert law.held_working_days(filed, both_answered, LATER) == 3    # 10/1, 10/7, 10/8; paused 10/2-10/6
+    assert law.held_working_days(A, filed, both_answered, LATER) == 3    # 10/1, 10/7, 10/8; paused 10/2-10/6
 
 
 def test_answer_and_new_ask_on_the_same_day():
@@ -126,11 +136,11 @@ def test_answer_and_new_ask_on_the_same_day():
     requote = [ev("fee_quoted", 10, 5), ev("fee_quoted", 10, 2), ev("fee_disputed", 10, 5),
                ev("fee_paid", 10, 20), ev("fulfilled", 10, 21)]
     law.validate(filed, requote, LATER)
-    assert law.held_working_days(filed, requote, LATER) == 2          # 10/1, 10/20
+    assert law.held_working_days(A, filed, requote, LATER) == 2          # 10/1, 10/20
     asked_twice = [ev("clarification_requested", 10, 2), ev("clarification_requested", 10, 9),
                    ev("clarification_sent", 10, 9), ev("clarification_sent", 10, 16), ev("fulfilled", 10, 19)]
     law.validate(filed, asked_twice, LATER)
-    assert law.held_working_days(filed, asked_twice, LATER) == 2      # 10/1, 10/16
+    assert law.held_working_days(A, filed, asked_twice, LATER) == 2      # 10/1, 10/16
 
 
 def test_same_day_events_sort_in_logical_order():
@@ -139,7 +149,7 @@ def test_same_day_events_sort_in_logical_order():
     filed = date(2026, 10, 1)
     paid_same_day = [ev("fulfilled", 10, 5), ev("fee_paid", 10, 5), ev("fee_quoted", 10, 5)]
     law.validate(filed, paid_same_day, LATER)
-    assert law.held_working_days(filed, paid_same_day, LATER) == 2
+    assert law.held_working_days(A, filed, paid_same_day, LATER) == 2
     law.validate(filed, [ev("appealed_da", 10, 5), ev("denied", 10, 5)], LATER)
     assert law.status([ev("appealed_da", 10, 5), ev("denied", 10, 5)]) == "denied"
 
@@ -153,14 +163,14 @@ def test_status_and_final_event():
 
 def test_counts_in_median():
     filed = date(2026, 10, 1)
-    assert law.counts_in_median("simple", filed, [ev("fulfilled", 10, 30)], LATER) is True
-    assert law.counts_in_median("simple", filed, [ev("withdrawn", 10, 30)], LATER) is False     # not a response
-    assert law.counts_in_median("simple", filed, [], LATER) is False                            # still open
-    assert law.counts_in_median("complex", filed, [ev("fulfilled", 10, 8)], LATER) is False
+    assert law.counts_in_median(A, "simple", filed, [ev("fulfilled", 10, 30)], LATER) is True
+    assert law.counts_in_median(A, "simple", filed, [ev("withdrawn", 10, 30)], LATER) is False     # not a response
+    assert law.counts_in_median(A, "simple", filed, [], LATER) is False                            # still open
+    assert law.counts_in_median(A, "complex", filed, [ev("fulfilled", 10, 8)], LATER) is False
     early_notice = [ev("subject_notice_sent", 10, 5), ev("fulfilled", 10, 30)]
-    assert law.counts_in_median("simple", filed, early_notice, LATER) is False                  # not judged
+    assert law.counts_in_median(A, "simple", filed, early_notice, LATER) is False                  # not judged
     late_notice = [ev("subject_notice_sent", 10, 26), ev("fulfilled", 11, 13)]
-    assert law.counts_in_median("simple", filed, late_notice, LATER) is True
+    assert law.counts_in_median(A, "simple", filed, late_notice, LATER) is True
 
 
 def denial(kind, reason, notice):
@@ -199,7 +209,7 @@ def test_small_sample_floor():
 def test_published_values():
     values = law.published_values()
     assert values["SIMPLE_REQUEST_BENCHMARK_WD"] == 10
-    assert values["HOLIDAYS"]["2026"] == ["2026-11-26", "2026-11-27"]
+    assert values["HOLIDAYS"][A] == {"2026": ["2026-11-26", "2026-11-27"]}
 
 
 def test_stats_only_embargo():

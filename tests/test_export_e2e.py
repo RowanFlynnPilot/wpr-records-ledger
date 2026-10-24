@@ -33,7 +33,7 @@ def db():
 
 @pytest.fixture(autouse=True)
 def test_holidays(monkeypatch):
-    monkeypatch.setattr(law, "HOLIDAYS", dict(synthetic.TEST_HOLIDAYS))
+    monkeypatch.setattr(law, "HOLIDAYS", synthetic.holiday_lists())
 
 
 def read_json(path):
@@ -79,8 +79,8 @@ def test_export_writes_every_file_as_expected(db, tmp_path, capsys):
     assert meta["law"] == {
         "SIMPLE_REQUEST_BENCHMARK_WD": 10, "LOCATION_FEE_THRESHOLD_CENTS": 5000,
         "MIN_N_FOR_RATES": 5, "STATS_ONLY_EMBARGO_DAYS": 90,
-        "HOLIDAYS": {str(y): sorted(d.isoformat() for d in days)
-                     for y, days in synthetic.TEST_HOLIDAYS.items()},
+        "HOLIDAYS": {agency: {str(y): sorted(d.isoformat() for d in days) for y, days in years.items()}
+                     for agency, years in synthetic.TEST_HOLIDAYS.items()},
     }
     generated = datetime.fromisoformat(meta["generated_at"])
     assert timedelta(0) <= datetime.now(timezone.utc) - generated < timedelta(minutes=5)
