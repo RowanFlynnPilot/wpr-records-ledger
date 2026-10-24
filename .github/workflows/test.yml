@@ -39,3 +39,35 @@ jobs:
         env:
           LEDGER_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
         run: python -m pytest tests -v
+
+  # The site with demo, worst-case, empty and one-of-everything data, at three
+  # widths, checked for overflow, console errors and axe violations. Synthetic
+  # data only, so the screenshots it uploads on a failure are safe to publish.
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - run: python -m playwright install --with-deps chromium
+
+      - name: axe-core, for the accessibility checks
+        run: |
+          mkdir -p "$RUNNER_TEMP/axe"
+          npm pack axe-core@4.14.0 --pack-destination "$RUNNER_TEMP/axe"
+          tar -xzf "$RUNNER_TEMP/axe/axe-core-4.14.0.tgz" -C "$RUNNER_TEMP/axe"
+
+      - name: Stress-test the site
+        run: python scripts/stress_site.py --check --axe "$RUNNER_TEMP/axe/package/axe.min.js"
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-stress-screenshots
+          path: site-stress/shots
+          retention-days: 7

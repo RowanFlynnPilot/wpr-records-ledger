@@ -1,0 +1,3 @@
+# Local and CI tools beyond the export: the site stress test (scripts/stress_site.py)
+# and the OG card (scripts/og_card.py). Not needed to run the export.
+playwright==1.60.0
