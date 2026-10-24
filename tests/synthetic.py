@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 
-AS_OF = date(2026, 12, 15)   # a Tuesday
+AS_OF = date(2027, 3, 1)   # a Monday: every stats_only request filed by Dec. 1, 2026 is 90 days old
 
 CITY = "City of Testville"
 DISTRICT = "Testville School District"
@@ -30,12 +30,16 @@ TEST_HOLIDAYS = {
                     "2025-11-27", "2025-11-28", "2025-12-24", "2025-12-25"),
         2026: _days("2026-01-01", "2026-05-25", "2026-07-03", "2026-09-07",
                     "2026-11-26", "2026-11-27", "2026-12-24", "2026-12-25"),
+        2027: _days("2027-01-01", "2027-05-31", "2027-07-05", "2027-09-06",
+                    "2027-11-25", "2027-11-26", "2027-12-24", "2027-12-31"),
     },
     DISTRICT: {
         2025: _days("2025-01-01", "2025-04-18", "2025-05-26", "2025-07-04", "2025-09-01",
                     "2025-11-27", "2025-12-24", "2025-12-25"),
         2026: _days("2026-01-01", "2026-04-03", "2026-05-25", "2026-07-03", "2026-09-07",
                     "2026-11-26", "2026-12-24", "2026-12-25"),
+        2027: _days("2027-01-01", "2027-03-26", "2027-05-31", "2027-07-05", "2027-09-06",
+                    "2027-11-25", "2027-12-24", "2027-12-31"),
     },
 }
 
@@ -106,12 +110,12 @@ REQUESTS = [
     # Notice after 12 days held: missed. Held to release 10/1-11/6 = 22 + 5 = 27.
     req("R10", CITY, d(10, 1), "email", "stats_only", "simple",
         [ev("subject_notice_sent", 10, 19), ev("fulfilled", 11, 9)]),
-    # Open since 11/2: 5+5+5+3+5+5+1 = 29 to AS_OF. Missed.
+    # Open since 11/2: Nov 19 + Dec 21 (12/24-25 off) + Jan 20 (1/1 off) + Feb 20 = 80 to AS_OF. Missed.
     req("R11", CITY, d(11, 2), "email", "public", "simple", [], "Contract with body-camera vendor"),
-    # stats_only, open, 8 days old: inside the embargo, counted nowhere.
+    # stats_only, 84 days old: inside the embargo, counted nowhere, even once closed.
     req("R12", CITY, d(12, 7), "email", "stats_only", "simple", [ev("acknowledged", 12, 8)]),
-    # stats_only, open, 105 days old: past the embargo, counted. Labor Day skipped:
-    # Sep 21 + Oct 22 + Nov 19 + Dec 10 = 72. Missed.
+    # stats_only, open, 181 days old: past the embargo, counted. Labor Day skipped:
+    # Sep 21 + Oct 22 + Nov 19 + Dec 21 + Jan 20 + Feb 20 = 123. Missed.
     req("R13", CITY, d(9, 1), "email", "stats_only", "simple", [ev("acknowledged", 9, 2)]),
     # Complex, quote disputed then revised and paid. Paused 9/21 and 10/5:
     # 9/14-30 (12) + 10/1-2 (2) + 10/6-30 (19) + 11/2-25 (18) = 51. Latest quote $90.
@@ -146,10 +150,11 @@ REQUESTS = [
         [ev("fee_quoted", 10, 6, amount_cents=1200), ev("fee_paid", 10, 12, amount_cents=1200),
          ev("fulfilled", 10, 26)]),
     req("S3", DISTRICT, d(10, 12), "email", "stats_only", "complex", [ev("fulfilled", 11, 20)]),
-    req("S4", DISTRICT, d(12, 1), "email", "stats_only", "simple", []),   # embargoed
+    # stats_only, open, exactly 90 days old: counted. Dec 21 + Jan 20 + Feb 20 = 61. Missed.
+    req("S4", DISTRICT, d(12, 1), "email", "stats_only", "simple", []),
 
     req("V1", VILLAGE, d(10, 1), "email", "private", "simple", [ev("fulfilled", 10, 5)]),
-    req("V2", VILLAGE, d(12, 10), "email", "stats_only", None, []),          # embargoed
+    req("V2", VILLAGE, d(12, 10), "email", "stats_only", None, []),          # 81 days: embargoed
 ]
 
 EXPECTED_SCORECARD = [
@@ -160,9 +165,9 @@ EXPECTED_SCORECARD = [
      "benchmark_met_share": 0.667, "benchmark_n": 12,
      "denials": 3, "denials_without_reasons": 1, "denials_missing_remedy_notice": 1, "no_records": 1,
      "location_fee_under_50": 1, "subject_notice_n": 2, "appeals": 1},
-    {"agency": DISTRICT, "requests": 3, "open": 0, "simple_n": 2, "complex_n": 1, "unclassified_n": 0,
+    {"agency": DISTRICT, "requests": 4, "open": 1, "simple_n": 3, "complex_n": 1, "unclassified_n": 0,
      "median_held_wd_simple": None, "median_n": 2,
-     "benchmark_met_share": None, "benchmark_n": 2,
+     "benchmark_met_share": None, "benchmark_n": 3,
      "denials": 0, "denials_without_reasons": 0, "denials_missing_remedy_notice": 0, "no_records": 0,
      "location_fee_under_50": 0, "subject_notice_n": 0, "appeals": 0},
 ]
@@ -179,7 +184,7 @@ def _listed(agency, filed_on, subject, status, held, met, quoted=None, paid=None
 EXPECTED_REQUESTS = [
     _listed(CITY, "2026-11-09", "Use-of-force reports, 2025", "denied", 4, None,
             reason=DENIAL_REASON, notice=True),
-    _listed(CITY, "2026-11-02", "Contract with body-camera vendor", "open", 29, False),
+    _listed(CITY, "2026-11-02", "Contract with body-camera vendor", "open", 80, False),
     _listed(CITY, "2026-11-02", "Council members' emails about the budget", "denied", 5, True, notice=False),
     _listed(CITY, "2026-10-26", "Lead service line inventory", "no_records", 4, None),
     _listed(CITY, "2026-10-19", "Building inspection reports, 500 block of Main St.", "fulfilled", 3, True,

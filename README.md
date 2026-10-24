@@ -11,7 +11,7 @@ How central Wisconsin agencies answer [Wausau Pilot & Review](https://wausaupilo
   - requests involving a s. 19.356 notice to an employee within the first 10 working days, where the law bars release for 12 days
   - requests withdrawn or still open inside 10 working days
 - **Small samples.** Medians and shares appear only when that statistic's own n is 5 or more, and n is always shown. Nothing is ranked.
-- **Unpublished stories.** Requests tied to unpublished stories are counted only once they are closed or 90 days old.
+- **Unpublished stories.** Requests tied to unpublished stories are counted only once they are 90 days old, even if they have closed.
 
 Every rule and statutory value the page uses lives in [`law.py`](law.py), and the methodology page prints it.
 

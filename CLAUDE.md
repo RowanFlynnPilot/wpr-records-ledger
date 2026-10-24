@@ -40,7 +40,7 @@ Use `127.0.0.1`, not `localhost`: on this machine `localhost` tries IPv6 first a
   - `channel` is `email`, `portal`, `mail`, `hand_delivered` or `oral`. Only `oral` is an unwritten request.
   - `visibility`:
     - `public`: listed and counted. Requires a non-blank `public_subject`, which never names individuals.
-    - `stats_only` (the default): counted once closed or 90 days old, never listed.
+    - `stats_only` (the default): counted once 90 days old (closed or not), never listed.
     - `private`: left out of the export.
   - `audit_round` marks a quarterly audit request, as `YYYY-Qn` (e.g. `2026-Q3`); null for reporting requests. Its format is checked.
   - `complexity` is `simple`, `complex`, or null until classified.
@@ -75,7 +75,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
 - **Working days.** `working_days(agency, start, end)` counts the agency's weekdays from the filing day up to, but not including, the end day. It skips `HOLIDAYS[agency][year]`, lists the editor sets and the page prints. Every clock function (`agency_working_days`, `held_working_days`, `benchmark_result`, `counts_in_median`) takes the agency first.
   - `HOLIDAYS` is keyed by the agency's name exactly as in the `agencies` table, then by year. The audit agencies disagree on 14+ dates in 2024–26 (Good Friday, New Year's Eve, MLK Day, Kronenwetter's 2025 swaps), so one shared list would miscount. Research and sources: `docs/holiday-research-2024-2026.md`.
   - It raises for a missing agency or year, so **every agency with a counted request needs 2024, 2025 and 2026 before the backfill export.**
-  - Only counted requests are measured, so an agency needs a list once one of its requests is closed, 90 days old or public, not before. That night's export stops until the list is set.
+  - Only counted requests are measured, so an agency needs a list once one of its requests is 90 days old or public, not before. That night's export stops until the list is set.
   - **Every agency in `HOLIDAYS` is published**, since the methodology page prints `law.py` in full. Adding an agency's list early can reveal a fresh request to it; for the audit custodians that's no risk.
   - Uses the standard library only.
 - **Held working days.** `held_working_days()` counts from filing to the **first terminal event** (`fulfilled`, `partially_denied`, `denied`, `no_records` or `withdrawn`), or to today while open.
@@ -102,7 +102,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
 - **Location fee.** `location_fee_below_threshold()`: an itemized quote with 0 < `location_cents` < `LOCATION_FEE_THRESHOLD_CENTS`.
 - **Floor.** `shows_rate(n)`: n >= `MIN_N_FOR_RATES`.
 - **Holidays.** Each agency with a counted request needs `HOLIDAYS[agency][year]` before the year's first export day: **set 2027 for every such agency before Jan. 1, 2027**, or the nightly export stops.
-- **Embargo.** `counts_in_metrics()` holds `stats_only` requests out until they are closed or 90 days old, so a nightly count can't reveal a fresh request tied to an unpublished story.
+- **Embargo.** `counts_in_metrics()` holds `stats_only` requests out until they are 90 days old, **even once closed**, so a nightly count can't reveal a fresh request tied to an unpublished story. (Until Oct. 2026 a close also let one in; a request filed Monday and denied Wednesday then showed up Thursday as +1 request and +1 denial.) Unlisted figures therefore lag by up to 90 days; public requests count at once.
 
 ## Metrics (`export.py`)
 **Per agency**, over requests where `counts_in_metrics()` is true. An agency with no counted request is left out, so adding an agency for a fresh request reveals nothing. Rows are alphabetical.

@@ -45,7 +45,7 @@ def test_meta():
     doc = export.meta(derived(), AS_OF, datetime(2026, 12, 15, 10, 37, tzinfo=timezone.utc))
     assert tuple(doc) == export.META_FIELDS
     assert doc["generated_at"] == "2026-12-15T10:37:00+00:00"
-    assert doc["as_of"] == "2026-12-15"
+    assert doc["as_of"] == "2027-03-01"
     assert doc["earliest_filed_on"] == synthetic.EXPECTED_EARLIEST_FILED_ON
     assert doc["law"]["MIN_N_FOR_RATES"] == 5
     assert doc["law"]["HOLIDAYS"][synthetic.CITY]["2026"][4:6] == ["2026-11-26", "2026-11-27"]
@@ -56,15 +56,13 @@ def test_embargoed_and_private_requests_count_nowhere():
     published = json.dumps([export.scorecard(derived()), export.public_requests(derived())])
     assert "SENTINEL" not in published   # embargoed/private subjects and their agencies
     assert synthetic.VILLAGE not in published and synthetic.COUNTY not in published
-    # The embargoed stats_only request R12 enters the count the day it closes.
+    # The embargoed stats_only request R12 stays out even once it closes.
     closed = [dict(r, events=r["events"] + [ev("fulfilled", 12, 14)]) if r["key"] == "R12" else r
               for r in synthetic.REQUESTS]
-    city = export.scorecard(derived(closed))[0]
-    assert city["requests"] == synthetic.EXPECTED_SCORECARD[0]["requests"] + 1
+    assert export.scorecard(derived(closed)) == synthetic.EXPECTED_SCORECARD
 
 
-def test_embargo_lifts_at_90_days(monkeypatch):
-    monkeypatch.setitem(law.HOLIDAYS[synthetic.CITY], 2027, frozenset())
+def test_embargo_lifts_at_90_days():
     r12 = next(r for r in synthetic.REQUESTS if r["key"] == "R12")   # filed 12/7, open
     inside = export.scorecard(derived([r12], as_of=date(2027, 3, 6)))   # 89 days
     past = export.scorecard(derived([r12], as_of=date(2027, 3, 7)))     # 90 days
@@ -97,7 +95,7 @@ def test_small_sample_floor_applies_to_each_rate_separately():
     ([ev("withdrawn", 10, 2), ev("fulfilled", 10, 5)], "follows the request's final event"),
     ([ev("fulfilled", 10, 2), ev("denied", 10, 5, remedy_notice=True)], "follows the request's final event"),
     ([ev("acknowledged", 9, 30)], "before filing"),
-    ([ev("fulfilled", 12, 16)], "dated after the export day"),
+    ([ev("fulfilled", 1, 1, event_on=date(2027, 3, 2))], "dated after the export day"),
 ])
 def test_invalid_event_log_stops_the_export(events, rule):
     bad = synthetic.req("BAD", synthetic.CITY, date(2026, 10, 1), "email", "stats_only", "simple", events)
@@ -124,11 +122,9 @@ def test_holiday_lists_are_needed_only_for_counted_requests():
     # The village has none, yet its private and embargoed requests export fine.
     assert synthetic.VILLAGE not in law.HOLIDAYS
     export.scorecard(derived())
-    # The day one of its requests counts, the export stops until the editor sets one.
-    closed = [dict(r, events=r["events"] + [ev("fulfilled", 12, 14)]) if r["key"] == "V2" else r
-              for r in synthetic.REQUESTS]
+    # The day one of its requests counts (V2 turns 90 days old), the export stops until one is set.
     with pytest.raises(KeyError, match="No holiday list for Village of Sample"):
-        derived(closed)
+        derived(as_of=date(2027, 3, 10))
 
 
 def test_location_fee_counts_requests_not_revised_quotes():

@@ -13,7 +13,7 @@ from datetime import date, timedelta
 SIMPLE_REQUEST_BENCHMARK_WD = 10
 LOCATION_FEE_THRESHOLD_CENTS = 5000   # s. 19.35(3)(c): location fees only if location cost >= $50
 MIN_N_FOR_RATES = 5                   # below this n, show the count only, no median or share
-STATS_ONLY_EMBARGO_DAYS = 90          # stats_only requests count once closed or this old
+STATS_ONLY_EMBARGO_DAYS = 90          # stats_only requests count once this old, closed or not
 
 # Days each agency's offices are closed, keyed by the agency's name exactly as
 # in the agencies table, then by year. Set by the editor and printed on the
@@ -255,11 +255,13 @@ def published_values() -> dict:
 def counts_in_metrics(visibility: str, filed_on: date, events: list[dict], as_of: date) -> bool:
     """Whether a request enters agency metrics today.
 
-    stats_only requests wait until closed or STATS_ONLY_EMBARGO_DAYS old, so a
-    nightly count can't reveal a fresh request tied to an unpublished story.
+    stats_only requests wait until STATS_ONLY_EMBARGO_DAYS old, even once
+    closed, so a nightly count can't reveal a fresh request tied to an
+    unpublished story: one filed Monday and denied Wednesday would otherwise
+    show up Thursday as one more request and one more denial.
     """
     if visibility == "private":
         return False
     if visibility == "public":
         return True
-    return clock_stop(events) is not None or (as_of - filed_on).days >= STATS_ONLY_EMBARGO_DAYS
+    return (as_of - filed_on).days >= STATS_ONLY_EMBARGO_DAYS

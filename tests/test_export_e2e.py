@@ -74,7 +74,7 @@ def test_export_writes_every_file_as_expected(db, tmp_path, capsys):
 
     meta = read_json(data / "meta.json")
     assert list(meta) == list(export.META_FIELDS)
-    assert meta["as_of"] == "2026-12-15"
+    assert meta["as_of"] == "2027-03-01"
     assert meta["earliest_filed_on"] == synthetic.EXPECTED_EARLIEST_FILED_ON
     assert meta["law"] == {
         "SIMPLE_REQUEST_BENCHMARK_WD": 10, "LOCATION_FEE_THRESHOLD_CENTS": 5000,
@@ -98,7 +98,7 @@ def test_export_writes_every_file_as_expected(db, tmp_path, capsys):
 
     printed = capsys.readouterr().out
     print(printed)
-    assert "SENTINEL" not in printed and "2 agencies, 20 counted requests, 10 public" in printed
+    assert "SENTINEL" not in printed and "2 agencies, 21 counted requests, 10 public" in printed
 
 
 def test_dry_run_writes_nothing(db, tmp_path):

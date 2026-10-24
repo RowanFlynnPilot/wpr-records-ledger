@@ -215,7 +215,9 @@ def test_published_values():
 def test_stats_only_embargo():
     filed = date(2026, 10, 1)
     assert law.counts_in_metrics("stats_only", filed, [], as_of=date(2026, 10, 2)) is False
-    assert law.counts_in_metrics("stats_only", filed, [ev("fulfilled", 10, 5)], as_of=date(2026, 10, 6)) is True
-    assert law.counts_in_metrics("stats_only", filed, [], as_of=date(2026, 12, 30)) is True
+    # Closed in four days, still held back: a fast close would reveal a fresh request.
+    assert law.counts_in_metrics("stats_only", filed, [ev("fulfilled", 10, 5)], as_of=date(2026, 10, 6)) is False
+    assert law.counts_in_metrics("stats_only", filed, [], as_of=date(2026, 12, 29)) is False   # 89 days
+    assert law.counts_in_metrics("stats_only", filed, [], as_of=date(2026, 12, 30)) is True    # 90 days
     assert law.counts_in_metrics("public", filed, [], as_of=date(2026, 10, 2)) is True
     assert law.counts_in_metrics("private", filed, [ev("fulfilled", 10, 5)], as_of=LATER) is False
