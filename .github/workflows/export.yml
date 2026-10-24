@@ -3,8 +3,8 @@ name: export
 # Nightly: test, then read the log as ledger_export, validate it with law.py,
 # and deploy the site with its JSON and CSV to GitHub Pages as an Actions
 # artifact. Data is never committed. The logs of a public repo are public:
-# export.py prints only published counts, and a validation failure names a
-# request id and the broken rule, never the agency or the subject.
+# export.py prints only published counts, and a validation failure prints
+# only how many requests failed (see --name-requests, run locally).
 
 on:
   schedule:
