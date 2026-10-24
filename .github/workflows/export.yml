@@ -5,16 +5,15 @@ name: export
 # artifact. Data is never committed. The logs of a public repo are public:
 # export.py prints only published counts, and a validation failure prints
 # only how many requests failed (see --name-requests, run locally).
+# After a successful export, the snapshot job freezes the data as a release for
+# the quarter that last ended, once (see snapshot.py).
 
 on:
   schedule:
     - cron: "37 10 * * *"   # 10:37 UTC: 5:37 a.m. CDT, 4:37 a.m. CST
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+permissions: {}   # each job asks for only what it needs
 
 concurrency:
   group: pages
@@ -23,6 +22,10 @@ concurrency:
 jobs:
   export:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -62,5 +65,50 @@ jobs:
         with:
           path: site
 
+      - name: Hand the data to the snapshot job
+        uses: actions/upload-artifact@v4
+        with:
+          name: data
+          path: site/data
+          retention-days: 1
+
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # The only job that can write to the repo, and all it writes is a release.
+  snapshot:
+    needs: export
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Which quarter, and is it frozen yet?
+        id: tag
+        run: |
+          tag=$(python snapshot.py)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.tag.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: data
+          path: data
+
+      - name: Freeze the quarter's data as a release
+        if: steps.tag.outputs.exists == 'false'
+        run: |
+          as_of=$(python -c "import json; print(json.load(open('data/meta.json'))['as_of'])")
+          gh release create "${{ steps.tag.outputs.tag }}" data/*.csv data/*.json             --title "Data, ${{ steps.tag.outputs.tag }}"             --notes "The Records Ledger's published data as exported on $as_of, the first successful nightly export after the quarter ended. Frozen so a figure cited in a story can be checked later. CC BY 4.0: credit Wausau Pilot & Review. It is WPR's own experience as one requester, not a measure of how an agency treats others; see the site's methodology."
