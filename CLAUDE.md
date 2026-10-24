@@ -15,6 +15,17 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
   - **Actions logs are public.** The export prints only published counts (a count of all requests read would reveal a fresh embargoed one). A validation failure prints only how many requests failed: an id (which also counts private requests) or a rule ("denied follows an unanswered fee_quoted") could reveal a fresh embargoed request. To see which, run `python export.py --dry-run --name-requests` locally with the `ledger_export` URL.
   - **Quarterly frozen copies.** After the export, a separate `snapshot` job (the only one with `contents: write`) publishes the exported CSVs and JSON as the GitHub Release `data-YYYY-Qn` for the quarter that last ended, if it doesn't exist yet and the export day is within the new quarter's first 14 days (`snapshot.py`), so a late first run can't label November's data as Q3: the first successful export in that window freezes it, so a figure cited in a story can be checked later. A release is not a commit; it is permanent public data, so correcting a request after its quarter is frozen means editing or deleting that release by hand.
   - GitHub disables a public repo's scheduled workflows after 60 days with no repository activity, and this repo commits no data. Watch for GitHub's warning email and re-enable the workflow, or push a commit, before then.
+- **Backups** (`backup.py`). The log is the only copy, and Supabase's free tier keeps no point-in-time backups.
+  - `python backup.py dump --to <private folder>` reads every table, private requests and never-published columns included, through the read-only `ledger_export` login (`SUPABASE_DB_URL`), in one snapshot, and writes `ledger-YYYYMMDD-HHMMSS/` with a CSV per table and a manifest of row counts and checksums. It refuses a folder inside the repo. A backup holds everything the export never publishes: keep it on a private drive.
+  - `python backup.py restore <folder>` (as the owner, `LEDGER_WRITE_DB_URL`) loads a backup into an empty database with `schema.sql` applied, in one transaction: it checks every checksum, sets the triggers aside while loading (the rows passed them once, and `public_ref` must come back unchanged), resets the id sequences, and checks the row counts. `--dry-run` does it all and rolls back.
+  - `tests/test_backup.py` round-trips the synthetic ledger: every row and column comes back, the exported site is byte-for-byte the same, the triggers are on again, and a tampered backup is refused.
+  - Schedule it nightly on the newsroom machine (your call; it stores the `ledger_export` URL in your user environment):
+    ```
+    [Environment]::SetEnvironmentVariable("SUPABASE_DB_URL", "<ledger_export URL>", "User")
+    $run = New-ScheduledTaskAction -Execute "<repo>\.venv\Scripts\python.exe" -Argument "backup.py dump --to D:\ledger-backups" -WorkingDirectory "<repo>"
+    Register-ScheduledTask -TaskName "Records Ledger backup" -Action $run -Trigger (New-ScheduledTaskTrigger -Daily -At 6am)
+    ```
+    Nothing prunes old backups; each is small. Test a restore into a scratch project now and then.
 - **Licensing.** The repo is public. Code is MIT-licensed and published data is CC BY 4.0.
 
 **Built and tested (`python -m pytest tests`, plus `supabase/tests.sql`):**
@@ -30,6 +41,7 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
 - `web/`: static HTML/CSS/JS, no build step
 - `backfill.py` and `tests/test_backfill.py`: loads past requests from two CSVs (templates and a column guide in `backfill_templates/`). Local only, as the owner (`LEDGER_WRITE_DB_URL`).
 - `staff_report.py` and `tests/test_staff_report.py`: the staff's private to-do list (see Logging). Refuses to run in Actions.
+- `backup.py` and `tests/test_backup.py`: CSV backups and a verified restore (see Backups).
 - `snapshot.py` and `tests/test_snapshot.py`: names the frozen data release (`data-YYYY-Qn`) for the quarter that last ended.
 - `.github/workflows/test.yml`: the whole suite on Python 3.12 with a Postgres 16 service on every push; first passed Oct 24, 2026 (56 tests, none skipped).
 

@@ -33,6 +33,11 @@ Backfill past requests from the CSV templates in `backfill_templates/` (see its 
 $env:LEDGER_WRITE_DB_URL = "<owner connection string>"; python backfill.py backfill/requests.csv backfill/events.csv --dry-run
 ```
 
+Back up the log to a private folder (read-only; see CLAUDE.md for restoring and scheduling):
+```
+$env:SUPABASE_DB_URL = "<ledger_export URL>"; python backup.py dump --to D:\ledger-backups
+```
+
 Export (nightly in Actions; locally with `--dry-run` to check without writing):
 ```
 $env:SUPABASE_DB_URL = "<session pooler URL for ledger_export>"; python export.py --out site --dry-run
