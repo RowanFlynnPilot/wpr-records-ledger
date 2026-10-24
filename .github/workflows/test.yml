@@ -1,0 +1,41 @@
+name: test
+
+# Every push and pull request: the whole suite on Python 3.12, including the
+# end-to-end export against a throwaway Postgres 16. No secrets, no deploy;
+# the nightly export lives in export.yml.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install -r requirements.txt
+
+      - name: Tests, including the end-to-end export against local Postgres
+        env:
+          LEDGER_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+        run: python -m pytest tests -v
