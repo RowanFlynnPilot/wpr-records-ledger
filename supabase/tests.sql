@@ -191,14 +191,33 @@ begin
   end loop;
 end $$;
 
--- ── RLS: anon and authenticated see and write nothing ───────────────────────
+-- ── anon and authenticated: no grants at all, and RLS behind that ──────────
+-- Each lock is tested on its own: the grants with has_table_privilege and real
+-- queries, RLS with a probe role that holds a grant but no policy.
+do $$
+declare
+  r text;
+  t text;
+  p text;
+begin
+  foreach r in array array['anon', 'authenticated'] loop
+    foreach t in array array['agencies', 'requests', 'request_events'] loop
+      foreach p in array array['select', 'insert', 'update', 'delete'] loop
+        if has_table_privilege(r, t, p) then
+          raise exception 'TEST FAILED: % holds % on %', r, p, t;
+        end if;
+      end loop;
+    end loop;
+  end loop;
+end $$;
+
 set local role anon;
 do $$ begin
-  if (select count(*) from agencies) <> 0
-     or (select count(*) from requests) <> 0
-     or (select count(*) from request_events) <> 0 then
-    raise exception 'TEST FAILED: anon can read rows';
-  end if;
+  begin
+    perform count(*) from requests;
+    raise exception 'TEST FAILED: anon can query requests';
+  exception when insufficient_privilege then null;
+  end;
   begin
     insert into agencies (name) values ('ZZTEST Anon Agency');
     raise exception 'TEST FAILED: anon inserted an agency';
@@ -209,18 +228,33 @@ reset role;
 
 set local role authenticated;
 do $$ begin
-  if (select count(*) from requests) <> 0 then
-    raise exception 'TEST FAILED: authenticated can read requests';
-  end if;
+  begin
+    perform count(*) from request_events;
+    raise exception 'TEST FAILED: authenticated can query request_events';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update requests set public_subject = 'changed by authenticated';
+    raise exception 'TEST FAILED: authenticated can update requests';
+  exception when insufficient_privilege then null;
+  end;
 end $$;
-update requests set public_subject = 'changed by authenticated';
 reset role;
 
+-- RLS on its own: a role granted select but given no policy still sees no row.
+-- Rolled back with everything else.
+create role zztest_rls_probe nologin;
+grant zztest_rls_probe to current_user;
+grant select on agencies, requests, request_events to zztest_rls_probe;
+set local role zztest_rls_probe;
 do $$ begin
-  if exists (select 1 from requests where public_subject = 'changed by authenticated') then
-    raise exception 'TEST FAILED: authenticated updated a request';
+  if (select count(*) from agencies) <> 0
+     or (select count(*) from requests) <> 0
+     or (select count(*) from request_events) <> 0 then
+    raise exception 'TEST FAILED: RLS lets a role without a policy read rows';
   end if;
 end $$;
+reset role;
 
 -- ── ledger_export: reads everything, writes nothing ─────────────────────────
 set local role ledger_export;

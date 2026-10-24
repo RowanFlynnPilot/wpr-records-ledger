@@ -58,7 +58,7 @@ Use `127.0.0.1`, not `localhost`: on this machine `localhost` tries IPv6 first a
 - **Check constraints:**
   - Fees require `amount_cents`. A quote's itemization is optional, all-or-none, and must add up to the total.
   - Denials require `remedy_notice`. `denial_reason` is nullable, and null means no reason was stated. A blank `denial_reason` is rejected, so "no reason" is always null.
-- **RLS.** anon and authenticated see and write nothing. `ledger_export` can only read.
+- **Two locks.** anon and authenticated hold no grants at all on the tables or their sequences (Supabase gives them every privilege by default and serves the tables through its REST API), and RLS would still hide every row from a role that had one. `ledger_export` can only read. `tests.sql` tests each lock on its own: the grants with `has_table_privilege` and real queries, RLS with a probe role that holds a grant but no policy. A table added later gets Supabase's default grants again, so revoke them there too.
 
 **Tests.** `supabase/tests.sql` passed on Postgres 16 with Supabase-style roles and real rows present (Oct 23, 2026). It was mutation-checked: dropping the complexity rule, letting the export role insert, or removing its read policy each make it fail.
 

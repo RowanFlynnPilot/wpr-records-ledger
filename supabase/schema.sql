@@ -228,6 +228,14 @@ alter table agencies       enable row level security;
 alter table requests       enable row level security;
 alter table request_events enable row level security;
 
+-- Two locks. Supabase grants anon and authenticated every privilege on new tables
+-- in public and serves them through its REST API, so RLS alone would stand
+-- between the log and the public. Revoke the grants too, so one mistaken policy
+-- can't leak it. (A table added later gets Supabase's default grants again:
+-- revoke them there too.)
+revoke all on agencies, requests, request_events from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+
 -- Read-only role for the nightly export. Give it a password and login in the
 -- SQL editor (never commit the password):
 --   alter role ledger_export with login password '<generate one>';
