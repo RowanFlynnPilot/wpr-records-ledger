@@ -1,0 +1,66 @@
+name: export
+
+# Nightly: test, then read the log as ledger_export, validate it with law.py,
+# and deploy the site with its JSON and CSV to GitHub Pages as an Actions
+# artifact. Data is never committed. The logs of a public repo are public:
+# export.py prints only published counts, and a validation failure names a
+# request id and the broken rule, never the agency or the subject.
+
+on:
+  schedule:
+    - cron: "37 10 * * *"   # 10:37 UTC: 5:37 a.m. CDT, 4:37 a.m. CST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    services:
+      # A throwaway Postgres for the end-to-end test only; never sees real data.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install -r requirements.txt
+
+      - name: Tests, including the end-to-end export against local Postgres
+        env:
+          LEDGER_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+        run: python -m pytest tests
+
+      - name: Export as ledger_export
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python export.py --out site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
