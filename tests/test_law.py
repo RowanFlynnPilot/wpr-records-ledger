@@ -154,6 +154,21 @@ def test_same_day_events_sort_in_logical_order():
     assert law.status([ev("appealed_da", 10, 5), ev("denied", 10, 5)]) == "denied"
 
 
+def test_denial_reversed():
+    filed = date(2026, 10, 1)
+    events = [ev("denied", 10, 5), ev("appealed_da", 10, 9), ev("denial_reversed", 11, 2)]
+    law.validate(filed, events, LATER)
+    assert law.status(events) == "denial_reversed"
+    assert law.held_working_days(A, filed, events, LATER) == 2              # measured to the denial
+    assert law.benchmark_result(A, "simple", filed, events, LATER) is True
+    law.validate(filed, [ev("denial_reversed", 10, 5), ev("partially_denied", 10, 5)], LATER)   # same day
+    for bad in ([ev("fulfilled", 10, 5), ev("denial_reversed", 10, 9)],     # nothing was denied
+                [ev("denial_reversed", 10, 5)],                             # no final response yet
+                [ev("denied", 10, 5), ev("denial_reversed", 10, 9), ev("denial_reversed", 10, 12)]):
+        with pytest.raises(law.InvalidRequest, match="must follow a denial"):
+            law.validate(filed, bad, LATER)
+
+
 def test_status_and_final_event():
     assert law.status([]) == "open"
     assert law.status([ev("records_released", 10, 5)]) == "open"

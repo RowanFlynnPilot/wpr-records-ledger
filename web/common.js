@@ -48,6 +48,7 @@ export const STATUS_LABELS = {
   open: "Open",
   fulfilled: "Fulfilled",
   partially_denied: "Partly denied",
+  denial_reversed: "Denied, later released",
   denied: "Denied",
   no_records: "No records",
   withdrawn: "Withdrawn",

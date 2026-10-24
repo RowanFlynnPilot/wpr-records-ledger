@@ -34,6 +34,7 @@ create type request_event_type as enum (
   'partially_denied',          -- terminal: provided with records withheld or redacted
   'denied',                    -- terminal: nothing provided
   'no_records',                -- terminal: agency says no responsive records exist
+  'denial_reversed',           -- after a denial, everything withheld is released (on review, appeal or court order)
   -- WPR actions
   'clarification_sent',
   'fee_paid',                  -- amount_cents 0 = fee waived

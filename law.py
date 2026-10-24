@@ -28,6 +28,10 @@ AGENCY_TERMINAL = frozenset({"fulfilled", "partially_denied", "denied", "no_reco
 TERMINAL = AGENCY_TERMINAL | {"withdrawn"}
 REMEDY_EVENTS = frozenset({"appealed_da", "appealed_ag", "mandamus_filed"})
 DENIALS = frozenset({"denied", "partially_denied"})
+# After a denial, everything withheld is released, on the agency's own review,
+# an appeal or a court order. It doesn't move the clock: the denial was the
+# final response. A partial reversal is a records_released batch.
+DENIAL_REVERSED = "denial_reversed"
 # s. 19.35(4)(b): a written request gets a written denial with specific reasons
 # and notice of review by mandamus or the DA or AG. Only an oral request is unwritten.
 UNWRITTEN_CHANNELS = frozenset({"oral"})
@@ -45,6 +49,7 @@ _SAME_DAY_ORDER = {
     **{kind: 1 for kind in _PAUSE_OF_END},
     **{kind: 2 for kind in TERMINAL},
     **{kind: 3 for kind in REMEDY_EVENTS},
+    DENIAL_REVERSED: 4,
 }
 
 
@@ -111,7 +116,7 @@ def validate(filed_on: date, events: list[dict], as_of: date) -> None:
     """
     if filed_on > as_of:
         raise InvalidRequest("filed after the export day")
-    withdrawn = False
+    withdrawn = reversed_ = False
     closed_by: str | None = None
     open_pauses: set[str] = set()
     for e in _sorted(events):
@@ -125,11 +130,14 @@ def validate(filed_on: date, events: list[dict], as_of: date) -> None:
                                  f"log a later batch as records_released")
         if withdrawn and kind not in REMEDY_EVENTS:
             raise InvalidRequest(f"{kind} comes after withdrawn")
+        if kind == DENIAL_REVERSED and (closed_by not in DENIALS or reversed_):
+            raise InvalidRequest(f"{kind} must follow a denial, once")
         if open_pauses and kind in AGENCY_TERMINAL:
             raise InvalidRequest(f"{kind} follows an unanswered {' and '.join(sorted(open_pauses))}; "
                                  f"log WPR's reply (or fee_paid with 0 for a waived fee) first")
         _track_pause(open_pauses, kind)
         withdrawn = withdrawn or kind == "withdrawn"
+        reversed_ = reversed_ or kind == DENIAL_REVERSED
         closed_by = closed_by or (kind if kind in TERMINAL else None)
 
 
@@ -145,9 +153,14 @@ def clock_stop(events: list[dict]) -> date | None:
 
 
 def status(events: list[dict]) -> str:
-    """'open', or the type of the request's final event."""
+    """'open', the type of the request's final event, or 'denial_reversed'
+    once everything a denial withheld has been released."""
     final = final_event(events)
-    return final["event_type"] if final else "open"
+    if final is None:
+        return "open"
+    if any(e["event_type"] == DENIAL_REVERSED for e in events):
+        return DENIAL_REVERSED
+    return final["event_type"]
 
 
 def agency_working_days(agency: str, filed_on: date, events: list[dict], until: date) -> int:

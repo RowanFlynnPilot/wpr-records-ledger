@@ -37,7 +37,8 @@ join (values
   ('subject_notice_sent',     '2026-10-09', null, null, null, null, null, null),
   ('records_released',        '2026-10-26', null, null, null, null, null, null),
   ('partially_denied',        '2026-10-27', null, null, null, null, null, false),   -- no reason stated
-  ('appealed_da',             '2026-10-30', null, null, null, null, null, null)
+  ('appealed_da',             '2026-10-30', null, null, null, null, null, null),
+  ('denial_reversed',         '2026-11-06', null, null, null, null, null, null)
 ) as v(event_type, event_on, amount_cents, location_cents, reproduction_cents, other_cents, denial_reason, remedy_notice)
   on true
 where r.records_sought = 'request A' and r.filed_by = 'ZZTEST';
@@ -65,8 +66,8 @@ select id, 'no_records', '2026-10-09' from requests where records_sought = 'requ
 
 do $$ begin
   if (select count(*) from request_events e join requests r on r.id = e.request_id
-      where r.filed_by = 'ZZTEST') <> 14 then
-    raise exception 'TEST FAILED: expected 14 happy-path events';
+      where r.filed_by = 'ZZTEST') <> 15 then
+    raise exception 'TEST FAILED: expected 15 happy-path events';
   end if;
 end $$;
 
@@ -188,7 +189,7 @@ end $$;
 set local role ledger_export;
 do $$ begin
   if (select count(*) from requests where filed_by = 'ZZTEST') <> 4
-     or (select count(*) from request_events e join requests r on r.id = e.request_id where r.filed_by = 'ZZTEST') <> 14 then
+     or (select count(*) from request_events e join requests r on r.id = e.request_id where r.filed_by = 'ZZTEST') <> 15 then
     raise exception 'TEST FAILED: ledger_export cannot read the test rows';
   end if;
   begin

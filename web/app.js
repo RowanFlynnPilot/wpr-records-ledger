@@ -76,6 +76,7 @@ function agencyCard(a, law) {
       count("Denials, full or partial", a.denials),
       count("with no stated reason", a.denials_without_reasons, true),
       count("without notice of appeal rights", a.denials_missing_remedy_notice, true),
+      count("later released in full", a.denials_reversed, true),
       count("“No records” responses", a.no_records),
       count("Location fees under $50", a.location_fee_under_50),
       count("Notices to an employee, s. 19.356", a.subject_notice_n),
@@ -91,7 +92,7 @@ function feeCell(cents, label) {
 }
 
 function denialNote(r) {
-  if (r.status !== "denied" && r.status !== "partially_denied") return null;
+  if (!["denied", "partially_denied", "denial_reversed"].includes(r.status)) return null;
   const reason = r.denial_reason === null ? "No reason stated." : `Stated reason: “${r.denial_reason}”`;
   const notice = r.remedy_notice ? "Gave notice of appeal rights." : "No notice of appeal rights.";
   return el("div", { class: "denial" }, `${reason} ${notice}`);

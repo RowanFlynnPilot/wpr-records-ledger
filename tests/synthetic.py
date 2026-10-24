@@ -89,9 +89,10 @@ REQUESTS = [
         [ev("fee_quoted", 10, 21, amount_cents=3250, location_cents=2500, reproduction_cents=750, other_cents=0),
          ev("fee_paid", 10, 28, amount_cents=3250), ev("fulfilled", 10, 29)],
         "Building inspection reports, 500 block of Main St."),
-    # Written (mail) denial with no reason and no remedy notice, then a DA appeal. 11/2-11/6: 5. Met.
+    # Written (mail) denial with no reason and no remedy notice, then a DA appeal, after which the
+    # city released everything. Still a denial, measured to it: 11/2-11/6 = 5. Met.
     req("R5", CITY, d(11, 2), "mail", "public", "simple",
-        [ev("denied", 11, 9, remedy_notice=False), ev("appealed_da", 11, 16)],
+        [ev("denied", 11, 9, remedy_notice=False), ev("appealed_da", 11, 16), ev("denial_reversed", 12, 10)],
         "Council members' emails about the budget"),
     # Oral request, partially denied with no reason or notice: counted as a denial,
     # not against the written-denial rules. 11/2-11/3: 2. Met.
@@ -163,12 +164,14 @@ EXPECTED_SCORECARD = [
      "median_held_wd_simple": 4.0, "median_n": 10,
      # met: R1 R3 R4 R5 R6 R7 R17 R19; missed: R2 R10 R11 R13
      "benchmark_met_share": 0.667, "benchmark_n": 12,
-     "denials": 3, "denials_without_reasons": 1, "denials_missing_remedy_notice": 1, "no_records": 1,
+     "denials": 3, "denials_without_reasons": 1, "denials_missing_remedy_notice": 1, "denials_reversed": 1,
+     "no_records": 1,
      "location_fee_under_50": 1, "subject_notice_n": 2, "appeals": 1},
     {"agency": DISTRICT, "requests": 4, "open": 1, "simple_n": 3, "complex_n": 1, "unclassified_n": 0,
      "median_held_wd_simple": None, "median_n": 2,
      "benchmark_met_share": None, "benchmark_n": 3,
-     "denials": 0, "denials_without_reasons": 0, "denials_missing_remedy_notice": 0, "no_records": 0,
+     "denials": 0, "denials_without_reasons": 0, "denials_missing_remedy_notice": 0, "denials_reversed": 0,
+     "no_records": 0,
      "location_fee_under_50": 0, "subject_notice_n": 0, "appeals": 0},
 ]
 
@@ -185,7 +188,8 @@ EXPECTED_REQUESTS = [
     _listed(CITY, "2026-11-09", "Use-of-force reports, 2025", "denied", 4, None,
             reason=DENIAL_REASON, notice=True),
     _listed(CITY, "2026-11-02", "Contract with body-camera vendor", "open", 80, False),
-    _listed(CITY, "2026-11-02", "Council members' emails about the budget", "denied", 5, True, notice=False),
+    _listed(CITY, "2026-11-02", "Council members' emails about the budget", "denial_reversed", 5, True,
+            notice=False),
     _listed(CITY, "2026-10-26", "Lead service line inventory", "no_records", 4, None),
     _listed(CITY, "2026-10-19", "Building inspection reports, 500 block of Main St.", "fulfilled", 3, True,
             quoted=3250, paid=3250),

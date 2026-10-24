@@ -36,7 +36,7 @@ EXPORT_ROLE = "ledger_export"
 SCORECARD_FIELDS = (
     "agency", "requests", "open", "simple_n", "complex_n", "unclassified_n",
     "median_held_wd_simple", "median_n", "benchmark_met_share", "benchmark_n",
-    "denials", "denials_without_reasons", "denials_missing_remedy_notice", "no_records",
+    "denials", "denials_without_reasons", "denials_missing_remedy_notice", "denials_reversed", "no_records",
     "location_fee_under_50", "subject_notice_n", "appeals",
 )
 REQUEST_FIELDS = (
@@ -156,6 +156,7 @@ def agency_row(agency: str, rows: list[dict]) -> dict:
         "denials_without_reasons": sum(law.denial_lacks_reasons(d["channel"], d["final"]) for d in rows),
         "denials_missing_remedy_notice": sum(law.denial_lacks_remedy_notice(d["channel"], d["final"])
                                              for d in rows),
+        "denials_reversed": sum(d["status"] == law.DENIAL_REVERSED for d in rows),
         "no_records": sum(d["status"] == "no_records" for d in rows),
         "location_fee_under_50": sum(any(law.location_fee_below_threshold(e) for e in d["events"])
                                      for d in rows),

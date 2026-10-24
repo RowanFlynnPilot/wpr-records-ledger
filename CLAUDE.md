@@ -47,7 +47,7 @@ Use `127.0.0.1`, not `localhost`: on this machine `localhost` tries IPv6 first a
     - `complexity_set_by` must differ from `filed_by`, compared case- and space-insensitively.
     - The rubric: simple means a limited number of easily identifiable records, which is DOJ's wording.
 - **request_events:** everything after filing.
-  - **Agency events:** `acknowledged`, `clarification_requested`, `delay_notified`, `fee_quoted`, `subject_notice_sent` (s. 19.356), `records_released` (an interim batch), `fulfilled`, `partially_denied`, `denied`, `no_records`.
+  - **Agency events:** `acknowledged`, `clarification_requested`, `delay_notified`, `fee_quoted`, `subject_notice_sent` (s. 19.356), `records_released` (an interim batch), `fulfilled`, `partially_denied`, `denied`, `no_records`, and `denial_reversed` (after a denial, everything withheld is released, on review, appeal or court order; a partial reversal is `records_released`).
   - **WPR events:** `clarification_sent`, `fee_paid` (0 means waived), `fee_disputed`, `withdrawn`, and the remedies `appealed_da`, `appealed_ag`, `mandamus_filed`.
 - **Check constraints:**
   - Fees require `amount_cents`. A quote's itemization is optional, all-or-none, and must add up to the total.
@@ -98,7 +98,8 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
   - Its messages name event types, never dates, because the export prints them to a public log.
 - **Entry checks.** Triggers in `schema.sql` reject three of those mistakes as staff type them: an event dated before filing (or `filed_on` moved past logged events), a second final event, and anything but a remedy after `withdrawn`. They mirror `law.validate`, which stays the authority; `test_entry_checks_agree_with_law_validate` runs each case through both, and every trigger rule is mutation-checked in `tests.sql`.
 - **s. 19.356 notice.** Only a notice dated on or before the final event bears on the benchmark; one sent before a later batch doesn't.
-- **Final event and status.** `final_event()` is the first terminal event; `status()` is its type, or `open`.
+- **Final event and status.** `final_event()` is the first terminal event; `status()` is its type, or `open`, or `denial_reversed` once a reversal follows a denial.
+- **Reversal.** `denial_reversed` must follow a denial, at most once, and sorts after remedies on the same day. It doesn't move the clock: the denial was the final response, and it still counts as a denial.
 - **Median membership.** `counts_in_median()`: simple requests the agency answered (not withdrawn, not open) that `benchmark_result` judges. An early s. 19.356 notice keeps a request out of both the median and the share.
 - **Denial checks.** `denial_lacks_reasons()` and `denial_lacks_remedy_notice()` apply to the final response of **written** requests only: s. 19.35(4)(b) requires reasons and the remedy notice for written requests, and an oral request's denial owes written reasons only on demand.
 - **Location fee.** `location_fee_below_threshold()`: an itemized quote with 0 < `location_cents` < `LOCATION_FEE_THRESHOLD_CENTS`.
@@ -111,7 +112,7 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
 - counts: `requests`, `open`, `simple_n`, `complex_n`, `unclassified_n`
 - `median_held_wd_simple`: over requests where `counts_in_median()` is true, with that n as `median_n`
 - `benchmark_met_share`: met / judged over the simple requests `benchmark_result` judges, rounded to 3 places, with that n as `benchmark_n`
-- `denials`: requests whose final response is `denied` or `partially_denied`. `denials_without_reasons` and `denials_missing_remedy_notice`: of those, written requests only (`law.denial_lacks_*`). `no_records`: final response `no_records`.
+- `denials`: requests whose final response is `denied` or `partially_denied`. `denials_without_reasons` and `denials_missing_remedy_notice`: of those, written requests only (`law.denial_lacks_*`). `denials_reversed`: of those, requests with a `denial_reversed` event. `no_records`: final response `no_records`.
 - `location_fee_under_50`: requests with an itemized quote where `law.location_fee_below_threshold()` (a revised quote with the same fee counts once)
 - `subject_notice_n`: requests with a `subject_notice_sent` event. `appeals`: remedy events.
 
@@ -119,9 +120,9 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
 
 **Outputs:**
 The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_FIELDS`), and every row is checked against them before it is written.
-- `scorecard.json` and `.csv`: by agency, with exactly these fields: `agency`, `requests`, `open`, `simple_n`, `complex_n`, `unclassified_n`, `median_held_wd_simple`, `median_n`, `benchmark_met_share`, `benchmark_n`, `denials`, `denials_without_reasons`, `denials_missing_remedy_notice`, `no_records`, `location_fee_under_50`, `subject_notice_n`, `appeals`
+- `scorecard.json` and `.csv`: by agency, with exactly these fields: `agency`, `requests`, `open`, `simple_n`, `complex_n`, `unclassified_n`, `median_held_wd_simple`, `median_n`, `benchmark_met_share`, `benchmark_n`, `denials`, `denials_without_reasons`, `denials_missing_remedy_notice`, `denials_reversed`, `no_records`, `location_fee_under_50`, `subject_notice_n`, `appeals`
 - `requests.json` and `.csv`: public requests only, newest first, with whitelisted fields `agency`, `filed_on`, `public_subject`, `audit_round`, `status`, `held_wd`, `benchmark_result`, `fees_quoted_cents`, `fees_paid_cents`, `denial_reason`, `remedy_notice`. Never export `records_sought`, `note`, `document_url`, `filed_by`, `complexity_set_by` or `custodian_email`.
-  - `status`: `law.status()`. `fees_quoted_cents`: the latest quote (a revised quote replaces the earlier one), or null. `fees_paid_cents`: the sum of `fee_paid` amounts (0 = waived), or null. `denial_reason` and `remedy_notice`: from the final response when it is a denial, else null.
+  - `status`: `law.status()`: `open`, the final event's type, or `denial_reversed`. `fees_quoted_cents`: the latest quote (a revised quote replaces the earlier one), or null. `fees_paid_cents`: the sum of `fee_paid` amounts (0 = waived), or null. `denial_reason` and `remedy_notice`: from the final response when it is a denial, else null.
 - `meta.json`: `generated_at`, `as_of` (the day open requests are measured to), `earliest_filed_on` (over counted requests only), and `law` (`law.published_values()`: the four constants and the holiday lists, by agency then year)
 - The site directory also carries `law.py` itself, which the methodology page prints.
 - CSV: booleans `true`/`false`, null empty, UTF-8.
@@ -159,6 +160,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
   - **Answering a quote or question:** always log your answer (`fee_paid`, `fee_paid` with 0 if waived, `fee_disputed`, or `clarification_sent`), or the export will stop.
   - For a denial: paste the stated reason, or leave it empty if none was given, and record whether the letter mentioned mandamus or review by the DA or AG. **For a public request the reason is published**, so like `public_subject` it must not name individuals.
   - A request has one final response. Records that arrive after it are `records_released`.
+  - If, after a denial, the agency releases everything it withheld (on its own, after an appeal, or by court order), log `denial_reversed` on the day it arrived.
 - Keep letters and records in Drive and paste the link into `document_url`. It never leaves the database.
 
 ## Escalation
