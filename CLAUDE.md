@@ -66,10 +66,11 @@ Use `127.0.0.1`, not `localhost`: on this machine `localhost` tries IPv6 first a
   - Only actual, necessary and direct costs may be charged.
   - A location fee is allowed only if the location cost alone is $50 or more.
   - Redaction generally can't be charged, except for certain law enforcement audio and video.
-- **Record-subject notice, s. 19.356:** For certain employee records, the agency must notify the employee and may not release within 12 days of sending that notice. That was the 2011 text; confirm the current statute.
+- **Record-subject notice, s. 19.356:** For certain records (an employee's disciplinary-investigation records, records obtained by subpoena or search warrant, and records prepared by another employer about its employee), the agency must notify the record subject within 3 days of deciding to release. It may not release within 12 days of sending that notice, and not at all while the subject's suit to block release (allowed within 10 days of the notice) or any appeal is pending, s. 19.356(5). Verified Oct 23, 2026 against the current statute, last amended by 2011 Wis. Act 84.
+  - That is why an early notice leaves a request **not judged** rather than judged after subtracting 12 days: the ledger logs no event for the subject's suit, so it can't tell a slow agency from one the law still bars.
 - **Fees after a lawsuit:** *Friends of Frame Park v. City of Waukesha* (Wis. 2022) allows attorney fees only when a court orders release.
 
-Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Government/PRL_guide.pdf); [DOJ fee schedule (June 2025)](https://www.wisdoj.gov/Open%20Government/Public%20Records%20Request%20Fee%20Schedule%20June%202025.pdf); [s. 19.356 (2011)](https://law.justia.com/codes/wisconsin/2011/19/19.356.html); [TMJ4 on Frame Park](https://www.tmj4.com/news/local-news/wisconsin-courts-open-records-ruling-decried-as-gutting-law).
+Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Government/PRL_guide.pdf); [DOJ fee schedule (June 2025)](https://www.wisdoj.gov/Open%20Government/Public%20Records%20Request%20Fee%20Schedule%20June%202025.pdf); [s. 19.356 (current)](https://docs.legis.wisconsin.gov/statutes/statutes/19/ii/356); [TMJ4 on Frame Park](https://www.tmj4.com/news/local-news/wisconsin-courts-open-records-ruling-decried-as-gutting-law).
 
 ## Clock and benchmark rules (`law.py`)
 - **Working days.** `working_days(agency, start, end)` counts the agency's weekdays from the filing day up to, but not including, the end day. It skips `HOLIDAYS[agency][year]`, lists the editor sets and the page prints. Every clock function (`agency_working_days`, `held_working_days`, `benchmark_result`, `counts_in_median`) takes the agency first.

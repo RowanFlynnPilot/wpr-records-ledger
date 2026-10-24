@@ -8,7 +8,7 @@ How central Wisconsin agencies answer [Wausau Pilot & Review](https://wausaupilo
 - **The 10-day benchmark.** It is DOJ guidance for simple requests, not a legal deadline. The person who filed a request never classifies it.
 - **Not judged against the benchmark:**
   - complex or unclassified requests
-  - requests involving a s. 19.356 notice to an employee within the first 10 working days, where the law bars release for 12 days
+  - requests involving a s. 19.356 notice to an employee within the first 10 working days, where the law bars release for 12 days, and while any suit by the employee to block it is pending
   - requests withdrawn or still open inside 10 working days
 - **Small samples.** Medians and shares appear only when that statistic's own n is 5 or more, and n is always shown. Nothing is ranked.
 - **Unpublished stories.** Requests tied to unpublished stories are counted only once they are 90 days old, even if they have closed.
