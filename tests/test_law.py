@@ -78,16 +78,92 @@ def test_subject_notice():
 
 def test_validate():
     filed = date(2026, 10, 1)
-    law.validate(filed, [ev("fee_quoted", 10, 2), ev("fee_paid", 10, 3), ev("fulfilled", 10, 5)])
-    law.validate(filed, [ev("denied", 10, 5), ev("appealed_da", 10, 9)])
+    law.validate(filed, [ev("fee_quoted", 10, 2), ev("fee_paid", 10, 3), ev("fulfilled", 10, 5)], LATER)
+    law.validate(filed, [ev("denied", 10, 5), ev("appealed_da", 10, 9)], LATER)
+    law.validate(filed, [ev("fulfilled", 10, 5), ev("records_released", 10, 9)], LATER)
     with pytest.raises(law.InvalidRequest):
-        law.validate(filed, [ev("fee_quoted", 10, 2), ev("fulfilled", 10, 5)])           # unanswered quote
+        law.validate(filed, [ev("fee_quoted", 10, 2), ev("fulfilled", 10, 5)], LATER)           # unanswered quote
     with pytest.raises(law.InvalidRequest):
-        law.validate(filed, [ev("clarification_requested", 10, 2), ev("denied", 10, 5)])  # unanswered question
+        law.validate(filed, [ev("clarification_requested", 10, 2), ev("denied", 10, 5)], LATER)  # unanswered question
     with pytest.raises(law.InvalidRequest):
-        law.validate(filed, [ev("withdrawn", 10, 2), ev("fulfilled", 10, 5)])
+        law.validate(filed, [ev("withdrawn", 10, 2), ev("fulfilled", 10, 5)], LATER)
     with pytest.raises(law.InvalidRequest):
-        law.validate(filed, [{"event_type": "acknowledged", "event_on": date(2026, 9, 30)}])
+        law.validate(filed, [{"event_type": "acknowledged", "event_on": date(2026, 9, 30)}], LATER)
+    with pytest.raises(law.InvalidRequest):
+        law.validate(filed, [ev("partially_denied", 10, 5), ev("denied", 10, 20)], LATER)       # a second final response
+    with pytest.raises(law.InvalidRequest):
+        law.validate(filed, [ev("fulfilled", 12, 20)], LATER)                                   # dated after the export day
+    with pytest.raises(law.InvalidRequest):
+        law.validate(date(2026, 12, 16), [], LATER)                                             # filed after the export day
+
+
+def test_same_day_events_sort_in_logical_order():
+    # Logged in the wrong order on the same day: the payment still answers the
+    # quote before the release, and the appeal follows the denial.
+    filed = date(2026, 10, 1)
+    paid_same_day = [ev("fulfilled", 10, 5), ev("fee_paid", 10, 5), ev("fee_quoted", 10, 5)]
+    law.validate(filed, paid_same_day, LATER)
+    assert law.held_working_days(filed, paid_same_day, LATER) == 2
+    law.validate(filed, [ev("appealed_da", 10, 5), ev("denied", 10, 5)], LATER)
+    assert law.status([ev("appealed_da", 10, 5), ev("denied", 10, 5)]) == "denied"
+
+
+def test_status_and_final_event():
+    assert law.status([]) == "open"
+    assert law.status([ev("records_released", 10, 5)]) == "open"
+    assert law.status([ev("no_records", 10, 9), ev("acknowledged", 10, 2)]) == "no_records"
+    assert law.final_event([ev("withdrawn", 10, 9)])["event_type"] == "withdrawn"
+
+
+def test_counts_in_median():
+    filed = date(2026, 10, 1)
+    assert law.counts_in_median("simple", filed, [ev("fulfilled", 10, 30)], LATER) is True
+    assert law.counts_in_median("simple", filed, [ev("withdrawn", 10, 30)], LATER) is False     # not a response
+    assert law.counts_in_median("simple", filed, [], LATER) is False                            # still open
+    assert law.counts_in_median("complex", filed, [ev("fulfilled", 10, 8)], LATER) is False
+    early_notice = [ev("subject_notice_sent", 10, 5), ev("fulfilled", 10, 30)]
+    assert law.counts_in_median("simple", filed, early_notice, LATER) is False                  # not judged
+    late_notice = [ev("subject_notice_sent", 10, 26), ev("fulfilled", 11, 13)]
+    assert law.counts_in_median("simple", filed, late_notice, LATER) is True
+
+
+def denial(kind, reason, notice):
+    return {"event_type": kind, "event_on": date(2026, 10, 5), "denial_reason": reason, "remedy_notice": notice}
+
+
+def test_denial_rules_apply_to_written_requests_only():
+    bare = denial("partially_denied", None, False)
+    assert law.denial_lacks_reasons("email", bare) is True
+    assert law.denial_lacks_remedy_notice("email", bare) is True
+    assert law.denial_lacks_reasons("oral", bare) is False
+    assert law.denial_lacks_remedy_notice("oral", bare) is False
+    proper = denial("denied", "Ongoing investigation", True)
+    assert law.denial_lacks_reasons("mail", proper) is False
+    assert law.denial_lacks_remedy_notice("mail", proper) is False
+    assert law.denial_lacks_reasons("email", None) is False
+    assert law.denial_lacks_reasons("email", {"event_type": "fulfilled", "event_on": date(2026, 10, 5)}) is False
+
+
+def quote(location):
+    return {"event_type": "fee_quoted", "event_on": date(2026, 10, 5), "location_cents": location}
+
+
+def test_location_fee_below_threshold():
+    assert law.location_fee_below_threshold(quote(4999)) is True
+    assert law.location_fee_below_threshold(quote(5000)) is False      # $50 or more may be charged
+    assert law.location_fee_below_threshold(quote(0)) is False         # no location fee
+    assert law.location_fee_below_threshold(quote(None)) is False      # not itemized
+
+
+def test_small_sample_floor():
+    assert law.shows_rate(law.MIN_N_FOR_RATES) is True
+    assert law.shows_rate(law.MIN_N_FOR_RATES - 1) is False
+
+
+def test_published_values():
+    values = law.published_values()
+    assert values["SIMPLE_REQUEST_BENCHMARK_WD"] == 10
+    assert values["HOLIDAYS"]["2026"] == ["2026-11-26", "2026-11-27"]
 
 
 def test_stats_only_embargo():

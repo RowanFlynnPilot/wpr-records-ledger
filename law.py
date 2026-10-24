@@ -24,11 +24,22 @@ HOLIDAYS: dict[int, frozenset[date]] = {}
 AGENCY_TERMINAL = frozenset({"fulfilled", "partially_denied", "denied", "no_records"})
 TERMINAL = AGENCY_TERMINAL | {"withdrawn"}
 REMEDY_EVENTS = frozenset({"appealed_da", "appealed_ag", "mandamus_filed"})
+DENIALS = frozenset({"denied", "partially_denied"})
+# s. 19.35(4)(b): a written request gets a written denial with specific reasons
+# and notice of review by mandamus or the DA or AG. Only an oral request is unwritten.
+UNWRITTEN_CHANNELS = frozenset({"oral"})
 # The agency's clock stops while it waits on WPR: (pause starts, events that end it).
 PAUSES = (
     ("clarification_requested", ("clarification_sent",)),
     ("fee_quoted", ("fee_paid", "fee_disputed")),
 )
+# Events logged on the same day sort in the order they must have happened: the
+# agency asks, WPR answers, the request closes, WPR seeks a remedy.
+_SAME_DAY_ORDER = {
+    **{kind: 1 for _, ends in PAUSES for kind in ends},
+    **{kind: 2 for kind in TERMINAL},
+    **{kind: 3 for kind in REMEDY_EVENTS},
+}
 
 
 class InvalidRequest(ValueError):
@@ -55,18 +66,26 @@ def working_days(start: date, end: date, excluded: frozenset[date] = frozenset()
 
 
 def _sorted(events: list[dict]) -> list[dict]:
-    return sorted(events, key=lambda e: e["event_on"])
+    return sorted(events, key=lambda e: (e["event_on"], _SAME_DAY_ORDER.get(e["event_type"], 0)))
 
 
-def validate(filed_on: date, events: list[dict]) -> None:
+def validate(filed_on: date, events: list[dict], as_of: date) -> None:
     """Raise InvalidRequest for an event log the clock rules can't measure."""
+    if filed_on > as_of:
+        raise InvalidRequest(f"filed on {filed_on}, after {as_of}")
     events = _sorted(events)
     withdrawn = False
+    closed_by: str | None = None
     open_pause: str | None = None
     for e in events:
         kind = e["event_type"]
         if e["event_on"] < filed_on:
             raise InvalidRequest(f"{kind} on {e['event_on']} is before filing on {filed_on}")
+        if e["event_on"] > as_of:
+            raise InvalidRequest(f"{kind} on {e['event_on']} is after {as_of}")
+        if closed_by and kind in TERMINAL:
+            raise InvalidRequest(f"{kind} on {e['event_on']} follows the request's final event, "
+                                 f"{closed_by}; log a later batch as records_released")
         if withdrawn and kind not in REMEDY_EVENTS:
             raise InvalidRequest(f"{kind} on {e['event_on']} comes after withdrawn")
         if open_pause and kind in AGENCY_TERMINAL:
@@ -78,11 +97,24 @@ def validate(filed_on: date, events: list[dict]) -> None:
             elif kind in ends and open_pause == start:
                 open_pause = None
         withdrawn = withdrawn or kind == "withdrawn"
+        closed_by = closed_by or (kind if kind in TERMINAL else None)
+
+
+def final_event(events: list[dict]) -> dict | None:
+    """The first terminal event: the agency's final response, or WPR withdrawing."""
+    return next((e for e in _sorted(events) if e["event_type"] in TERMINAL), None)
 
 
 def clock_stop(events: list[dict]) -> date | None:
     """Date of the first terminal event (the agency's, or WPR withdrawing)."""
-    return next((e["event_on"] for e in _sorted(events) if e["event_type"] in TERMINAL), None)
+    final = final_event(events)
+    return final["event_on"] if final else None
+
+
+def status(events: list[dict]) -> str:
+    """'open', or the type of the request's final event."""
+    final = final_event(events)
+    return final["event_type"] if final else "open"
 
 
 def agency_working_days(filed_on: date, events: list[dict], until: date) -> int:
@@ -129,6 +161,56 @@ def benchmark_result(complexity: str | None, filed_on: date, events: list[dict],
     if stop is None or stop["event_type"] == "withdrawn":
         return False if held > benchmark else None
     return held <= benchmark
+
+
+def counts_in_median(complexity: str | None, filed_on: date, events: list[dict],
+                     as_of: date) -> bool:
+    """Whether a request's held days enter the simple-request median.
+
+    Only simple requests the agency answered (not withdrawn or open) and that
+    the benchmark judges, so the median sits beside the benchmark on the same
+    footing: an early s. 19.356 notice, whose 12-day bar is the statute's
+    delay and not the agency's, keeps a request out of both.
+    """
+    final = final_event(events)
+    return (complexity == "simple" and final is not None
+            and final["event_type"] in AGENCY_TERMINAL
+            and benchmark_result(complexity, filed_on, events, as_of) is not None)
+
+
+def denial_lacks_reasons(channel: str, response: dict | None) -> bool:
+    """A denial of a written request that states no reason, s. 19.35(4)(b)."""
+    return (response is not None and response["event_type"] in DENIALS
+            and channel not in UNWRITTEN_CHANNELS and response["denial_reason"] is None)
+
+
+def denial_lacks_remedy_notice(channel: str, response: dict | None) -> bool:
+    """A denial of a written request without notice of mandamus or DA/AG review, s. 19.35(4)(b)."""
+    return (response is not None and response["event_type"] in DENIALS
+            and channel not in UNWRITTEN_CHANNELS and response["remedy_notice"] is False)
+
+
+def location_fee_below_threshold(event: dict) -> bool:
+    """An itemized quote charging a location fee smaller than s. 19.35(3)(c) allows."""
+    return (event["event_type"] == "fee_quoted" and event["location_cents"] is not None
+            and 0 < event["location_cents"] < LOCATION_FEE_THRESHOLD_CENTS)
+
+
+def shows_rate(n: int) -> bool:
+    """Whether a median or share built on n requests is published."""
+    return n >= MIN_N_FOR_RATES
+
+
+def published_values() -> dict:
+    """The values the methodology page prints."""
+    return {
+        "SIMPLE_REQUEST_BENCHMARK_WD": SIMPLE_REQUEST_BENCHMARK_WD,
+        "LOCATION_FEE_THRESHOLD_CENTS": LOCATION_FEE_THRESHOLD_CENTS,
+        "MIN_N_FOR_RATES": MIN_N_FOR_RATES,
+        "STATS_ONLY_EMBARGO_DAYS": STATS_ONLY_EMBARGO_DAYS,
+        "HOLIDAYS": {str(year): sorted(d.isoformat() for d in days)
+                     for year, days in sorted(HOLIDAYS.items())},
+    }
 
 
 def counts_in_metrics(visibility: str, filed_on: date, events: list[dict], as_of: date) -> bool:
