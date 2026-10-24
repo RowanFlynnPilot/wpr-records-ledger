@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Records Ledger — embed</title>
+    <meta name="robots" content="noindex" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Public+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="embed">
+    <!-- For iframes in WPR articles: embed.html?agency=<name exactly as on the ledger>.
+         It posts {source: "wpr-records-ledger", height} to the parent so the iframe can be sized. -->
+    <main class="embed-page">
+      <header class="embed-head">
+        <a href="index.html" target="_blank" rel="noopener">
+          <img src="wpr-badge.jpg" alt="" width="32" height="32" />
+          <span>Wausau Pilot <span class="amp">&amp;</span> Review · The Records Ledger</span>
+        </a>
+      </header>
+      <div id="embed-card"></div>
+      <p class="embed-foot">
+        WPR's own experience as one requester, not a measure of how the agency treats others.
+        <a href="methodology.html" target="_blank" rel="noopener">How we count</a> ·
+        <a href="index.html" target="_blank" rel="noopener">Every agency</a> ·
+        <span id="embed-updated"></span>
+      </p>
+    </main>
+    <script type="module" src="embed.js"></script>
+  </body>
+</html>

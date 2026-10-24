@@ -148,6 +148,8 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
    - a `stats_only` request inside the embargo
 4. **Site:** agency cards with n, a public request list, CSV downloads, and a methodology page that prints `law.py` and each agency's holiday list.
    - Both pages show a banner when `meta.json` is more than 2 days old: the nightly export has stopped (a failed run, or GitHub disabling the schedule).
+   - **Embed:** `embed.html?agency=<name>` shows one agency card for an iframe in an article (about 900px tall at phone width) and posts its height to the parent. Card markup lives in `web/cards.js`, shared with the home page.
+   - **Sharing:** OG and Twitter tags and a schema.org `Dataset` block assume the Pages URL `https://rowanflynnpilot.github.io/wpr-records-ledger/`; change them if the site moves to a custom domain. `web/og-image.png` is rendered by `scripts/og_card.py` (Playwright, a local tool only) from `scripts/og_card.html`; rerun it when the branding changes and commit the PNG.
    - The home page's lead is one block in `web/leads/` (`scorecard.html` or `audit.html`), chosen by `LEAD` in `web/config.js`. Phase 0 decides it.
 5. **Staff intake form**, only if Table Editor logging becomes a bottleneck.
 
