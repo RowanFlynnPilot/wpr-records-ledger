@@ -22,5 +22,16 @@ python -m pytest tests
 ```
 Schema tests: apply `supabase/schema.sql`, then run `supabase/tests.sql` in the SQL editor. It runs in one transaction, rolls back and touches only rows marked `ZZTEST`.
 
+End-to-end tests need a local Postgres 16. They seed synthetic data, run `supabase/tests.sql`, export as `ledger_export` and check every output file:
+```
+docker run -d --name wpr-records-ledger-pg -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:54330:5432 postgres:16
+$env:LEDGER_TEST_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54330/postgres"; python -m pytest tests
+```
+
+Export (nightly in Actions; locally with `--dry-run` to check without writing):
+```
+$env:SUPABASE_DB_URL = "<session pooler URL for ledger_export>"; python export.py --out site --dry-run
+```
+
 ## License
 Code: MIT (see [LICENSE](LICENSE)). Published data: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), credit Wausau Pilot & Review.
