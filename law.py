@@ -33,10 +33,13 @@ PAUSES = (
     ("clarification_requested", ("clarification_sent",)),
     ("fee_quoted", ("fee_paid", "fee_disputed")),
 )
-# Events logged on the same day sort in the order they must have happened: the
-# agency asks, WPR answers, the request closes, WPR seeks a remedy.
+_PAUSE_STARTS = frozenset(start for start, _ in PAUSES)
+_PAUSE_OF_END = {end: start for start, ends in PAUSES for end in ends}
+# Events logged on the same day sort in the order they must have happened: an
+# answer to an ask already open, then the agency's events (a new ask among
+# them), then answers to asks made that day, then the final event, then remedies.
 _SAME_DAY_ORDER = {
-    **{kind: 1 for _, ends in PAUSES for kind in ends},
+    **{kind: 1 for kind in _PAUSE_OF_END},
     **{kind: 2 for kind in TERMINAL},
     **{kind: 3 for kind in REMEDY_EVENTS},
 }
@@ -66,36 +69,56 @@ def working_days(start: date, end: date, excluded: frozenset[date] = frozenset()
 
 
 def _sorted(events: list[dict]) -> list[dict]:
-    return sorted(events, key=lambda e: (e["event_on"], _SAME_DAY_ORDER.get(e["event_type"], 0)))
+    """Events in the order they must have happened (see _SAME_DAY_ORDER)."""
+    by_day: dict[date, list[dict]] = {}
+    for e in events:
+        by_day.setdefault(e["event_on"], []).append(e)
+    ordered: list[dict] = []
+    open_pauses: set[str] = set()
+    for day in sorted(by_day):
+        def rank(e: dict) -> int:
+            if _PAUSE_OF_END.get(e["event_type"]) in open_pauses:
+                return -1
+            return _SAME_DAY_ORDER.get(e["event_type"], 0)
+        for e in sorted(by_day[day], key=rank):
+            _track_pause(open_pauses, e["event_type"])
+            ordered.append(e)
+    return ordered
+
+
+def _track_pause(open_pauses: set[str], kind: str) -> None:
+    """Update the set of open pauses for one event."""
+    if kind in _PAUSE_STARTS:
+        open_pauses.add(kind)
+    elif kind in _PAUSE_OF_END:
+        open_pauses.discard(_PAUSE_OF_END[kind])
 
 
 def validate(filed_on: date, events: list[dict], as_of: date) -> None:
-    """Raise InvalidRequest for an event log the clock rules can't measure."""
+    """Raise InvalidRequest for an event log the clock rules can't measure.
+
+    Messages name event types, never dates: the export prints them to a public log.
+    """
     if filed_on > as_of:
-        raise InvalidRequest(f"filed on {filed_on}, after {as_of}")
-    events = _sorted(events)
+        raise InvalidRequest("filed after the export day")
     withdrawn = False
     closed_by: str | None = None
-    open_pause: str | None = None
-    for e in events:
+    open_pauses: set[str] = set()
+    for e in _sorted(events):
         kind = e["event_type"]
         if e["event_on"] < filed_on:
-            raise InvalidRequest(f"{kind} on {e['event_on']} is before filing on {filed_on}")
+            raise InvalidRequest(f"{kind} is dated before filing")
         if e["event_on"] > as_of:
-            raise InvalidRequest(f"{kind} on {e['event_on']} is after {as_of}")
+            raise InvalidRequest(f"{kind} is dated after the export day")
         if closed_by and kind in TERMINAL:
-            raise InvalidRequest(f"{kind} on {e['event_on']} follows the request's final event, "
-                                 f"{closed_by}; log a later batch as records_released")
+            raise InvalidRequest(f"{kind} follows the request's final event, {closed_by}; "
+                                 f"log a later batch as records_released")
         if withdrawn and kind not in REMEDY_EVENTS:
-            raise InvalidRequest(f"{kind} on {e['event_on']} comes after withdrawn")
-        if open_pause and kind in AGENCY_TERMINAL:
-            raise InvalidRequest(f"{kind} on {e['event_on']} follows an unanswered {open_pause}; "
+            raise InvalidRequest(f"{kind} comes after withdrawn")
+        if open_pauses and kind in AGENCY_TERMINAL:
+            raise InvalidRequest(f"{kind} follows an unanswered {' and '.join(sorted(open_pauses))}; "
                                  f"log WPR's reply (or fee_paid with 0 for a waived fee) first")
-        for start, ends in PAUSES:
-            if kind == start:
-                open_pause = start
-            elif kind in ends and open_pause == start:
-                open_pause = None
+        _track_pause(open_pauses, kind)
         withdrawn = withdrawn or kind == "withdrawn"
         closed_by = closed_by or (kind if kind in TERMINAL else None)
 
@@ -119,17 +142,25 @@ def status(events: list[dict]) -> str:
 
 def agency_working_days(filed_on: date, events: list[dict], until: date) -> int:
     """Working days the agency held the request between filing and `until`,
-    minus the days it was waiting on WPR."""
-    events = _sorted(events)
+    minus the days it was waiting on WPR. Each answer ends the pause that was
+    open when it arrived; a repeated ask while one is open extends that pause."""
     paused: set[date] = set()
-    for start_type, end_types in PAUSES:
-        for start in (e["event_on"] for e in events if e["event_type"] == start_type):
-            resume = next((e["event_on"] for e in events
-                           if e["event_type"] in end_types and e["event_on"] >= start), until)
-            day = start
-            while day < min(resume, until):
-                paused.add(day)
-                day += timedelta(days=1)
+    opened: dict[str, date] = {}
+
+    def pause(start: date, end: date) -> None:
+        day = start
+        while day < min(end, until):
+            paused.add(day)
+            day += timedelta(days=1)
+
+    for e in _sorted(events):
+        kind = e["event_type"]
+        if kind in _PAUSE_STARTS:
+            opened.setdefault(kind, e["event_on"])
+        elif _PAUSE_OF_END.get(kind) in opened:
+            pause(opened.pop(_PAUSE_OF_END[kind]), e["event_on"])
+    for start in opened.values():
+        pause(start, until)
     return working_days(filed_on, until, frozenset(paused))
 
 
@@ -151,14 +182,15 @@ def benchmark_result(complexity: str | None, filed_on: date, events: list[dict],
     """
     if complexity != "simple":
         return None
-    events = _sorted(events)
     benchmark = SIMPLE_REQUEST_BENCHMARK_WD
-    notice = next((e["event_on"] for e in events if e["event_type"] == "subject_notice_sent"), None)
+    final = final_event(events)
+    # A notice sent after the final response (before a later batch) doesn't bear on it.
+    notice = next((e["event_on"] for e in _sorted(events) if e["event_type"] == "subject_notice_sent"
+                   and (final is None or e["event_on"] <= final["event_on"])), None)
     if notice is not None:
         return False if agency_working_days(filed_on, events, notice) > benchmark else None
-    stop = next((e for e in events if e["event_type"] in TERMINAL), None)
-    held = agency_working_days(filed_on, events, stop["event_on"] if stop else as_of)
-    if stop is None or stop["event_type"] == "withdrawn":
+    held = agency_working_days(filed_on, events, final["event_on"] if final else as_of)
+    if final is None or final["event_type"] == "withdrawn":
         return False if held > benchmark else None
     return held <= benchmark
 

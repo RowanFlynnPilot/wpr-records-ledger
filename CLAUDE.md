@@ -12,7 +12,8 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
   - It validates the data, computes the metrics and deploys the site plus JSON and CSV to GitHub Pages **as an Actions artifact**. Data is never committed.
   - It refuses to run unless `current_user` is `ledger_export`, reads in one read-only repeatable-read transaction, and never selects a private request or a never-exported column.
   - `--out` must not exist; the export writes a fresh directory. `--dry-run` reads, validates and computes but writes nothing. `--as-of` defaults to today in America/Chicago.
-  - **Actions logs are public.** The export prints only published counts (a count of all requests read would reveal a fresh embargoed one). A validation failure names the request id and the broken rule, never the agency or subject.
+  - **Actions logs are public.** The export prints only published counts (a count of all requests read would reveal a fresh embargoed one). A validation failure names the request id and the broken rule, never the agency, subject or dates.
+  - GitHub disables a public repo's scheduled workflows after 60 days with no repository activity, and this repo commits no data. Watch for GitHub's warning email and re-enable the workflow, or push a commit, before then.
 - **Licensing.** The repo is public. Code is MIT-licensed and published data is CC BY 4.0.
 
 **Built and tested (`python -m pytest tests`, plus `supabase/tests.sql`):**
@@ -82,12 +83,15 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
   - a s. 19.356 notice sent after day 10: missed
   - a s. 19.356 notice sent within 10 days: not judged, since release is barred by statute
   - withdrawn or still open inside 10 days: not judged
-- **Same-day order.** Events on one day sort in the order they must have happened, whatever order staff logged them: the agency's other events first, then WPR's answers, then the final event, then remedies.
+- **Same-day order.** Events on one day sort in the order they must have happened, whatever order staff logged them: an answer to an ask already open, then the agency's events (a new ask among them), then answers to asks made that day, then the final event, then remedies.
+- **Pairing.** Each answer ends the pause of its kind that was open when it arrived. A repeated ask while one is open extends that pause. Both kinds can be open at once, and each must be answered.
 - **Validation.** `validate(filed_on, events, as_of)` raises when:
   - an event is dated before filing, or the request or any event is dated after the export day
   - anything but a remedy follows `withdrawn`
   - a second terminal event follows the first (a request has one final event; log a later batch as `records_released`)
-  - an agency's final response follows an unanswered fee quote or clarification request (log `fee_paid`, `fee_disputed` or `clarification_sent` first)
+  - an agency's final response follows an unanswered fee quote or clarification request, either kind (log `fee_paid`, `fee_disputed` or `clarification_sent` first)
+  - Its messages name event types, never dates, because the export prints them to a public log.
+- **s. 19.356 notice.** Only a notice dated on or before the final event bears on the benchmark; one sent before a later batch doesn't.
 - **Final event and status.** `final_event()` is the first terminal event; `status()` is its type, or `open`.
 - **Median membership.** `counts_in_median()`: simple requests the agency answered (not withdrawn, not open) that `benchmark_result` judges. An early s. 19.356 notice keeps a request out of both the median and the share.
 - **Denial checks.** `denial_lacks_reasons()` and `denial_lacks_remedy_notice()` apply to the final response of **written** requests only: s. 19.35(4)(b) requires reasons and the remedy notice for written requests, and an oral request's denial owes written reasons only on demand.
@@ -102,10 +106,10 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
 - `median_held_wd_simple`: over requests where `counts_in_median()` is true, with that n as `median_n`
 - `benchmark_met_share`: met / judged over the simple requests `benchmark_result` judges, rounded to 3 places, with that n as `benchmark_n`
 - `denials`: requests whose final response is `denied` or `partially_denied`. `denials_without_reasons` and `denials_missing_remedy_notice`: of those, written requests only (`law.denial_lacks_*`). `no_records`: final response `no_records`.
-- `location_fee_under_50`: itemized quote events where `law.location_fee_below_threshold()`
+- `location_fee_under_50`: requests with an itemized quote where `law.location_fee_below_threshold()` (a revised quote with the same fee counts once)
 - `subject_notice_n`: requests with a `subject_notice_sent` event. `appeals`: remedy events.
 
-**Small samples:** each median or share appears only when **its own** n (closed simple requests for the median, judged requests for the share) is at least `MIN_N_FOR_RATES` (5). n always shows. **Nothing is ranked in v1.**
+**Small samples:** each median or share appears only when **its own** n (`median_n`: answered simple requests the benchmark judges; `benchmark_n`: judged requests) is at least `MIN_N_FOR_RATES` (5). n always shows. **Nothing is ranked in v1.**
 
 **Outputs:**
 The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_FIELDS`), and every row is checked against them before it is written.

@@ -96,7 +96,7 @@ def test_small_sample_floor_applies_to_each_rate_separately():
     ([ev("withdrawn", 10, 2), ev("fulfilled", 10, 5)], "follows the request's final event"),
     ([ev("fulfilled", 10, 2), ev("denied", 10, 5, remedy_notice=True)], "follows the request's final event"),
     ([ev("acknowledged", 9, 30)], "before filing"),
-    ([ev("fulfilled", 12, 16)], "after 2026-12-15"),
+    ([ev("fulfilled", 12, 16)], "dated after the export day"),
 ])
 def test_invalid_event_log_stops_the_export(events, rule):
     bad = synthetic.req("BAD", synthetic.CITY, date(2026, 10, 1), "email", "stats_only", "simple", events)
@@ -104,7 +104,8 @@ def test_invalid_event_log_stops_the_export(events, rule):
     with pytest.raises(export.ExportError) as err:
         export.validate_all(requests, AS_OF)
     assert f"request {len(requests)}: " in str(err.value) and rule in str(err.value)
-    assert synthetic.CITY not in str(err.value)   # public logs never name the agency
+    assert synthetic.CITY not in str(err.value)   # public logs never name the agency...
+    assert "2026-" not in str(err.value)          # ...or date an embargoed request
 
 
 def test_valid_synthetic_data_passes_validation():
@@ -115,6 +116,15 @@ def test_missing_holiday_year_stops_the_export(monkeypatch):
     monkeypatch.setattr(law, "HOLIDAYS", {2026: synthetic.TEST_HOLIDAYS[2026]})
     with pytest.raises(KeyError, match="2027"):
         derived(as_of=date(2027, 1, 5))
+
+
+def test_location_fee_counts_requests_not_revised_quotes():
+    requote = synthetic.req("Q", "Fee Agency", date(2026, 10, 5), "email", "public", "simple", [
+        ev("fee_quoted", 10, 6, amount_cents=3000, location_cents=2500, reproduction_cents=500, other_cents=0),
+        ev("fee_disputed", 10, 7),
+        ev("fee_quoted", 10, 8, amount_cents=2700, location_cents=2500, reproduction_cents=200, other_cents=0),
+        ev("fee_paid", 10, 9, amount_cents=2700), ev("fulfilled", 10, 12)], "Revised quote")
+    assert export.scorecard(derived([requote]))[0]["location_fee_under_50"] == 1
 
 
 def test_fees():

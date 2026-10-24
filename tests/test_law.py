@@ -74,6 +74,12 @@ def test_subject_notice():
     assert law.benchmark_result("simple", filed, early, LATER) is None       # statute bars release; not judged
     late = [ev("subject_notice_sent", 10, 26), ev("fulfilled", 11, 13)]
     assert law.benchmark_result("simple", filed, late, LATER) is False       # already past 10 days at the notice
+    # A notice before a batch released after the final response doesn't bear on it.
+    after_final = [ev("partially_denied", 10, 5), ev("subject_notice_sent", 11, 2), ev("records_released", 11, 20)]
+    assert law.benchmark_result("simple", filed, after_final, LATER) is True
+    assert law.counts_in_median("simple", filed, after_final, LATER) is True
+    same_day = [ev("fulfilled", 10, 26), ev("subject_notice_sent", 10, 26)]
+    assert law.benchmark_result("simple", filed, same_day, LATER) is False   # notice sorts first: 17 days in
 
 
 def test_validate():
@@ -95,6 +101,36 @@ def test_validate():
         law.validate(filed, [ev("fulfilled", 12, 20)], LATER)                                   # dated after the export day
     with pytest.raises(law.InvalidRequest):
         law.validate(date(2026, 12, 16), [], LATER)                                             # filed after the export day
+
+
+def test_each_pause_must_be_answered_even_when_both_are_open():
+    filed = date(2026, 10, 1)
+    clarification_left_open = [ev("clarification_requested", 10, 2), ev("fee_quoted", 10, 5),
+                               ev("fee_paid", 10, 6), ev("fulfilled", 11, 30)]
+    with pytest.raises(law.InvalidRequest, match="unanswered clarification_requested"):
+        law.validate(filed, clarification_left_open, LATER)
+    quote_left_open = [ev("fee_quoted", 10, 2), ev("clarification_requested", 10, 5),
+                       ev("clarification_sent", 10, 6), ev("fulfilled", 11, 30)]
+    with pytest.raises(law.InvalidRequest, match="unanswered fee_quoted"):
+        law.validate(filed, quote_left_open, LATER)
+    both_answered = [ev("clarification_requested", 10, 2), ev("fee_quoted", 10, 5),
+                     ev("fee_paid", 10, 6), ev("clarification_sent", 10, 7), ev("fulfilled", 10, 9)]
+    law.validate(filed, both_answered, LATER)
+    assert law.held_working_days(filed, both_answered, LATER) == 3    # 10/1, 10/7, 10/8; paused 10/2-10/6
+
+
+def test_answer_and_new_ask_on_the_same_day():
+    # WPR answers and the agency asks again the same day: the answer closes the
+    # old pause and the new ask opens another, whatever order they were logged in.
+    filed = date(2026, 10, 1)
+    requote = [ev("fee_quoted", 10, 5), ev("fee_quoted", 10, 2), ev("fee_disputed", 10, 5),
+               ev("fee_paid", 10, 20), ev("fulfilled", 10, 21)]
+    law.validate(filed, requote, LATER)
+    assert law.held_working_days(filed, requote, LATER) == 2          # 10/1, 10/20
+    asked_twice = [ev("clarification_requested", 10, 2), ev("clarification_requested", 10, 9),
+                   ev("clarification_sent", 10, 9), ev("clarification_sent", 10, 16), ev("fulfilled", 10, 19)]
+    law.validate(filed, asked_twice, LATER)
+    assert law.held_working_days(filed, asked_twice, LATER) == 2      # 10/1, 10/16
 
 
 def test_same_day_events_sort_in_logical_order():

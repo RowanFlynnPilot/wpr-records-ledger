@@ -151,7 +151,8 @@ def agency_row(agency: str, rows: list[dict]) -> dict:
         "denials_missing_remedy_notice": sum(law.denial_lacks_remedy_notice(d["channel"], d["final"])
                                              for d in rows),
         "no_records": sum(d["status"] == "no_records" for d in rows),
-        "location_fee_under_50": sum(law.location_fee_below_threshold(e) for d in rows for e in d["events"]),
+        "location_fee_under_50": sum(any(law.location_fee_below_threshold(e) for e in d["events"])
+                                     for d in rows),
         "subject_notice_n": sum(any(e["event_type"] == "subject_notice_sent" for e in d["events"])
                                 for d in rows),
         "appeals": sum(e["event_type"] in law.REMEDY_EVENTS for d in rows for e in d["events"]),
