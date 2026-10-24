@@ -78,6 +78,9 @@ def fetch(conn: psycopg.Connection) -> list[dict]:
         if role != EXPORT_ROLE:
             raise ExportError(f"connected as {role}; the export must connect as {EXPORT_ROLE}")
         agencies = {a["id"]: a["name"] for a in cur.execute(AGENCIES_SQL)}
+        unknown = sorted(set(law.HOLIDAYS) - set(agencies.values()))
+        if unknown:
+            raise ExportError(f"holidays.toml names agencies not in the agencies table: {', '.join(unknown)}")
         requests = {r["id"]: {**r, "agency": agencies[r["agency_id"]], "events": []}
                     for r in cur.execute(REQUESTS_SQL)}
         for e in cur.execute(EVENTS_SQL):
@@ -257,6 +260,7 @@ def write_site(out: Path, card: list[dict], listed: list[dict], events: list[dic
         raise ExportError(f"{out} already exists; the export writes a fresh directory")
     shutil.copytree(WEB, out)
     shutil.copy(ROOT / "law.py", out / "law.py")
+    shutil.copy(law.HOLIDAYS_FILE, out / "holidays.toml")
     data_dir = out / "data"
     data_dir.mkdir()
     write_table(data_dir, "scorecard", card, SCORECARD_FIELDS)
@@ -274,7 +278,7 @@ def holiday_warning(card: list[dict], as_of: date) -> str | None:
     missing = [a["agency"] for a in card if not law.has_holiday_list(a["agency"], year)]
     if not missing:
         return None
-    return f"No {year} holiday list for {', '.join(missing)}: set law.HOLIDAYS before Jan. 1 or the export stops"
+    return f"No {year} holiday list for {', '.join(missing)}: add them to holidays.toml before Jan. 1 or the export stops"
 
 
 def run(conninfo: str, out: Path, as_of: date, dry_run: bool, name_requests: bool = False) -> None:

@@ -5,7 +5,9 @@ page prints it. Change a rule here, nowhere else.
 """
 from __future__ import annotations
 
+import tomllib
 from datetime import date, timedelta
+from pathlib import Path
 
 # ── Benchmarks ────────────────────────────────────────────────────────────────
 # DOJ guidance, not a statutory deadline: ~10 working days is generally
@@ -16,12 +18,46 @@ MIN_N_FOR_RATES = 5                   # below this n, show the count only, no me
 STATS_ONLY_EMBARGO_DAYS = 90          # stats_only requests count once this old, closed or not
 
 # Days each agency's offices are closed, keyed by the agency's name exactly as
-# in the agencies table, then by year. Set by the editor and printed on the
-# methodology page. Agencies close on different days (Good Friday, New Year's
-# Eve, MLK Day), so each has its own list. working_days() refuses an agency or
-# year missing from this map: every agency with a counted request needs 2024,
-# 2025 and 2026 before the backfill export, and each new year before Jan. 1.
-HOLIDAYS: dict[str, dict[int, frozenset[date]]] = {}
+# in the agencies table, then by year. The editor sets them in holidays.toml,
+# and the methodology page prints them. Agencies close on different days (Good
+# Friday, New Year's Eve, MLK Day), so each has its own list. working_days()
+# refuses an agency or year missing from this map: every agency with a counted
+# request needs 2024, 2025 and 2026 before the backfill export, and each new
+# year before Jan. 1.
+HOLIDAYS_FILE = Path(__file__).with_name("holidays.toml")
+
+
+class HolidayFileError(ValueError):
+    pass
+
+
+def load_holidays(path: Path) -> dict[str, dict[int, frozenset[date]]]:
+    """holidays.toml as {agency: {year: dates}}, refusing anything that can't be a closure:
+    a weekend (it is skipped anyway, so it's a typo), a date under the wrong year, a repeat."""
+    with open(path, "rb") as f:
+        raw = tomllib.load(f)
+    holidays: dict[str, dict[int, frozenset[date]]] = {}
+    errors = []
+    for agency, years in raw.items():
+        holidays[agency] = {}
+        for year_key, days in years.items():
+            year = int(year_key)
+            for d in days:
+                if type(d) is not date:
+                    errors.append(f"{agency} {year}: {d!r} is not a date (write it as {year}-MM-DD)")
+                elif d.year != year:
+                    errors.append(f"{agency} {year}: {d} is listed under the wrong year")
+                elif d.weekday() >= 5:
+                    errors.append(f"{agency} {year}: {d} is a {d:%A}; weekends are skipped anyway")
+            if len(set(days)) != len(days):
+                errors.append(f"{agency} {year}: a date is listed twice")
+            holidays[agency][year] = frozenset(d for d in days if type(d) is date)
+    if errors:
+        raise HolidayFileError(f"{path.name}:\n  " + "\n  ".join(errors))
+    return holidays
+
+
+HOLIDAYS: dict[str, dict[int, frozenset[date]]] = load_holidays(HOLIDAYS_FILE)
 
 # ── Event classes ─────────────────────────────────────────────────────────────
 AGENCY_TERMINAL = frozenset({"fulfilled", "partially_denied", "denied", "no_records"})
@@ -66,10 +102,10 @@ class InvalidRequest(ValueError):
 
 def _holidays(agency: str, start: date, end: date) -> dict[int, frozenset[date]]:
     if agency not in HOLIDAYS:
-        raise KeyError(f"No holiday list for {agency}: set law.HOLIDAYS[{agency!r}]")
+        raise KeyError(f"No holiday list for {agency}: add it to holidays.toml")
     for year in range(start.year, end.year + 1):
         if year not in HOLIDAYS[agency]:
-            raise KeyError(f"No {year} holiday list for {agency}: set law.HOLIDAYS[{agency!r}][{year}]")
+            raise KeyError(f"No {year} holiday list for {agency}: add it to holidays.toml")
     return HOLIDAYS[agency]
 
 

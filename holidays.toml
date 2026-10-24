@@ -1,0 +1,11 @@
+# Days each agency's offices are closed, which working-day counts skip on top of
+# weekends. One table per agency, named exactly as in the agencies table; one
+# list per year, as plain dates. The methodology page publishes all of it.
+#
+# law.py checks this file whenever it loads, and the export stops on a weekend
+# date, a date under the wrong year, a repeated date, or an agency name not in
+# the agencies table. Research and sources: docs/holiday-research-2024-2026.md.
+#
+# Example (not real data):
+# ["City of Example"]
+# 2026 = [2026-01-01, 2026-05-25, 2026-07-03, 2026-09-07, 2026-11-26, 2026-11-27, 2026-12-24, 2026-12-25]

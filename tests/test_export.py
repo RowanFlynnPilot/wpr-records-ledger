@@ -192,6 +192,7 @@ def test_write_site(tmp_path):
     assert read_csv(out / "data" / "requests.csv") == [list(export.REQUEST_FIELDS)] + [
         [as_csv_cell(row[k]) for k in export.REQUEST_FIELDS] for row in synthetic.EXPECTED_REQUESTS]
     assert (out / "law.py").read_text("utf-8") == (export.ROOT / "law.py").read_text("utf-8")
+    assert (out / "holidays.toml").read_text("utf-8") == law.HOLIDAYS_FILE.read_text("utf-8")
     assert (out / "index.html").exists() and (out / "methodology.html").exists()
     with pytest.raises(export.ExportError):
         export.write_site(out, card, listed, events, doc)   # never writes over an existing directory

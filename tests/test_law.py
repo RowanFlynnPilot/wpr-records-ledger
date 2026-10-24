@@ -268,6 +268,35 @@ def test_small_sample_floor():
     assert law.shows_rate(law.MIN_N_FOR_RATES - 1) is False
 
 
+def write_holidays(tmp_path, text):
+    path = tmp_path / "holidays.toml"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_load_holidays(tmp_path):
+    path = write_holidays(tmp_path, '["City of Example"]\n2026 = [2026-11-26, 2026-11-27]\n2027 = []\n')
+    assert law.load_holidays(path) == {"City of Example": {
+        2026: frozenset({date(2026, 11, 26), date(2026, 11, 27)}), 2027: frozenset()}}
+    assert law.load_holidays(write_holidays(tmp_path, "# nothing set yet\n")) == {}
+
+
+def test_holiday_file_refuses_what_cannot_be_a_closure(tmp_path):
+    path = write_holidays(tmp_path, '["City of Example"]\n'
+                                    '2026 = [2026-11-28, 2025-12-25, "2026-12-24", 2026-11-26, 2026-11-26]\n')
+    with pytest.raises(law.HolidayFileError) as err:
+        law.load_holidays(path)
+    message = str(err.value)
+    assert "2026-11-28 is a Saturday" in message
+    assert "2025-12-25 is listed under the wrong year" in message
+    assert "'2026-12-24' is not a date" in message
+    assert "a date is listed twice" in message
+
+
+def test_the_repo_holiday_file_loads():
+    law.load_holidays(law.HOLIDAYS_FILE)
+
+
 def test_published_values():
     values = law.published_values()
     assert values["SIMPLE_REQUEST_BENCHMARK_WD"] == 10

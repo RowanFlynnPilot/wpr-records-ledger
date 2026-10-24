@@ -104,6 +104,13 @@ def test_export_writes_every_file_as_expected(db, tmp_path, capsys):
     assert "SENTINEL" not in printed and "2 agencies, 22 counted requests, 11 public" in printed
 
 
+def test_holiday_file_must_name_real_agencies(db, tmp_path, monkeypatch):
+    _, export_url = db
+    monkeypatch.setitem(law.HOLIDAYS, "City of Testvile", synthetic.TEST_HOLIDAYS[synthetic.CITY])
+    with pytest.raises(export.ExportError, match="not in the agencies table: City of Testvile"):
+        export.run(export_url, tmp_path / "site", synthetic.AS_OF, dry_run=True)
+
+
 def test_dry_run_writes_nothing(db, tmp_path):
     _, export_url = db
     export.run(export_url, tmp_path / "site", synthetic.AS_OF, dry_run=True)
