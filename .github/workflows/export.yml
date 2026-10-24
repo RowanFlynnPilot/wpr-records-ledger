@@ -118,4 +118,6 @@ jobs:
         if: steps.tag.outputs.freeze == 'true'
         run: |
           as_of=$(python -c "import json; print(json.load(open('data/meta.json'))['as_of'])")
-          gh release create "${{ steps.tag.outputs.tag }}" data/*.csv data/*.json             --title "Data, ${{ steps.tag.outputs.tag }}"             --notes "The Records Ledger's published data as exported on $as_of, the first successful nightly export after the quarter ended. Frozen so a figure cited in a story can be checked later. CC BY 4.0: credit Wausau Pilot & Review. It is WPR's own experience as one requester, not a measure of how an agency treats others; see the site's methodology."
+          gh release create "${{ steps.tag.outputs.tag }}" data/*.csv data/*.json \
+            --title "Data, ${{ steps.tag.outputs.tag }}" \
+            --notes "The Records Ledger's published data as exported on $as_of, the first successful nightly export after the quarter ended. Frozen so a figure cited in a story can be checked later. CC BY 4.0: credit Wausau Pilot & Review. It is WPR's own experience as one requester, not a measure of how an agency treats others; see the site's methodology."
