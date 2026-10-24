@@ -77,6 +77,36 @@
         </ul>
       </section>
 
+      <section aria-labelledby="sameday-h" class="prose">
+        <h2 id="sameday-h">When several things happen on one day</h2>
+        <p>
+          The ledger records the day each thing happened, not the time. When an agency and WPR both act on the
+          same day, the ledger puts the day's events in the order they must have happened:
+        </p>
+        <ul>
+          <li>An agency's question comes before WPR's answer to it, and WPR never answers something that wasn't asked.</li>
+          <li>When WPR answers an earlier question on the same day the agency asks another, the new question comes first, unless the answer was a dispute of a fee: a dispute is what prompts a revised quote. Where only one order fits what happened on later days, that order is used.</li>
+          <li>On the day of an agency's final response, a fee quoted in the same letter is treated as a bill for what came with it, so it doesn't pause the count.</li>
+        </ul>
+        <p>
+          These rules set the order a request's timeline lists its events in, and which days count as the agency
+          waiting on WPR, so they can affect the working-day count. They are written out in law.py below and tested
+          against a second, independent version of the count on tens of thousands of generated histories.
+        </p>
+      </section>
+
+      <section aria-labelledby="refs-h" class="prose">
+        <h2 id="refs-h">Reference numbers</h2>
+        <p>
+          Each listed request has a reference number, such as <code>2026-10-05-city-of-wausau-1</code>: the day it
+          was filed, the agency, and its place among that agency's listed requests that day. It is assigned the day
+          the request is first listed and never changes, so a number cited in a story always points to the same
+          request. It joins a request to its timeline in the downloads. A gap in the numbering, such as a
+          <code>-2</code> with no <code>-1</code>, means a request filed that day was listed once and later
+          taken off the list.
+        </p>
+      </section>
+
       <section aria-labelledby="small-h" class="prose">
         <h2 id="small-h">Small samples</h2>
         <p>

@@ -175,6 +175,7 @@ The whitelists live in `export.py` (`SCORECARD_FIELDS`, `REQUEST_FIELDS`, `META_
 5. **Staff intake form**, only if Table Editor logging becomes a bottleneck.
 
 ## Logging, for staff (v1)
+**`docs/staff-guide.md`** is the plain-language version for reporters: every column and event type, what the Table Editor refuses, fixing mistakes, and the weekly report. Keep it in step with this section and `schema.sql`.
 - **When filing:** add one `requests` row.
   - Leave `visibility` as `stats_only` unless the story is published.
   - Someone other than the filer sets `complexity`.
