@@ -12,7 +12,8 @@ It is pitched to funders together with the Closed Door Ledger as one transparenc
   - It validates the data, computes the metrics and deploys the site plus JSON and CSV to GitHub Pages **as an Actions artifact**. Data is never committed.
   - It refuses to run unless `current_user` is `ledger_export`, reads in one read-only repeatable-read transaction, and never selects a private request or a never-exported column.
   - `--out` must not exist; the export writes a fresh directory. `--dry-run` reads, validates and computes but writes nothing. `--as-of` defaults to today in America/Chicago.
-  - **Actions logs are public.** The export prints only published counts (a count of all requests read would reveal a fresh embargoed one). A validation failure names the request id and the broken rule, never the agency, subject or dates.
+  - **Actions logs are public.** The export prints only published counts (a count of all requests read would reveal a fresh embargoed one). A validation failure prints only how many requests failed: an id (which also counts private requests) or a rule ("denied follows an unanswered fee_quoted") could reveal a fresh embargoed request. To see which, run `python export.py --dry-run --name-requests` locally with the `ledger_export` URL.
+  - `ref` numbering can shift when a same-day request at that agency is listed or unlisted, so join `requests` and `request_events` from the same export.
   - GitHub disables a public repo's scheduled workflows after 60 days with no repository activity, and this repo commits no data. Watch for GitHub's warning email and re-enable the workflow, or push a commit, before then.
 - **Licensing.** The repo is public. Code is MIT-licensed and published data is CC BY 4.0.
 
@@ -88,8 +89,10 @@ Sources: [DOJ Compliance Guide (June 2025)](https://www.wisdoj.gov/Open%20Govern
   - a s. 19.356 notice sent after day 10: missed
   - a s. 19.356 notice sent within 10 days: not judged, since release is barred by statute
   - withdrawn or still open inside 10 days: not judged
-- **Same-day order.** Events on one day sort in the order they must have happened, whatever order staff logged them: an answer to an ask already open, then the agency's events (a new ask among them), then answers to asks made that day, then the final event, then remedies.
-- **Fee billed with the response.** A `fee_quoted` dated the same day as the agency's final response, with no `fee_paid` or `fee_disputed` that day, is a bill for what came with the response: it sorts after it and pauses nothing. A quote on an earlier day must still be answered first.
+- **Same-day order** (`law.in_order()`, also the published timeline's order). Events on one day sort in the order they must have happened, whatever order staff logged them: the agency's events (a new ask among them), WPR's answers, the final event, remedies, a reversal. Two exceptions:
+  - An ask still open from an earlier day, answered today while the agency asks again today: today's answer comes first when a later answer exists for the new ask; otherwise today's answer is to today's ask.
+  - A quote in the same letter as the final response is a bill (see below).
+- **Fee billed with the response.** A `fee_quoted` dated the same day as the agency's final response is a bill for what came with the response, unless that day carries more fee answers than an earlier open quote needs: it sorts after the response and pauses nothing. A quote on an earlier day must still be answered first.
 - **Pairing.** Each answer ends the pause of its kind that was open when it arrived. A repeated ask while one is open extends that pause. Both kinds can be open at once, and each must be answered.
 - **Validation.** `validate(filed_on, events, as_of)` raises when:
   - an event is dated before filing, or the request or any event is dated after the export day

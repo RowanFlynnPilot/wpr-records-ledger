@@ -136,9 +136,12 @@ def test_invalid_event_log_in_the_database_stops_the_export(db, tmp_path):
                          values (%s, 'fulfilled', '2026-10-05')""", (request_id,))
         owner.commit()
         try:
-            with pytest.raises(export.ExportError, match=f"request {request_id}: .*unanswered fee_quoted"):
+            with pytest.raises(export.ExportError, match="^1 request\\(s\\) failed validation") as err:
                 export.run(export_url, tmp_path / "site", synthetic.AS_OF, dry_run=False)
+            assert str(request_id) not in str(err.value)
             assert not (tmp_path / "site").exists()
+            with pytest.raises(export.ExportError, match=f"request {request_id}: .*unanswered fee_quoted"):
+                export.run(export_url, tmp_path / "site", synthetic.AS_OF, dry_run=True, name_requests=True)
         finally:
             owner.execute("delete from request_events where request_id = %s", (request_id,))
             owner.execute("delete from requests where id = %s", (request_id,))

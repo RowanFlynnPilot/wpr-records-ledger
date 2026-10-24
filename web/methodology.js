@@ -4,7 +4,7 @@ const DESCRIPTIONS = {
   SIMPLE_REQUEST_BENCHMARK_WD: "Working days DOJ calls generally reasonable for a simple request",
   LOCATION_FEE_THRESHOLD_CENTS: "Location cost, in cents, below which no location fee may be charged",
   MIN_N_FOR_RATES: "Fewest requests a median or share may rest on",
-  STATS_ONLY_EMBARGO_DAYS: "Days before an open, unlisted request enters the figures",
+  STATS_ONLY_EMBARGO_DAYS: "Days before an unlisted request enters the figures, closed or not",
 };
 
 // One collapsible list per agency: each skips its own closures.

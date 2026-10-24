@@ -42,11 +42,15 @@ PAUSES = (
 )
 _PAUSE_STARTS = frozenset(start for start, _ in PAUSES)
 _PAUSE_OF_END = {end: start for start, ends in PAUSES for end in ends}
-# Events logged on the same day sort in the order they must have happened: an
-# answer to an ask already open, then the agency's events (a new ask among
-# them), then answers to asks made that day, then the final event, then remedies.
-# A fee quote in the same letter as the final response, unanswered that day, is
-# a bill for what came with it: it sorts after the response and pauses nothing.
+# Events logged on the same day sort in the order they must have happened:
+# - The agency's events, a new ask among them; then WPR's answers; then the
+#   final event; then remedies; then a reversal.
+# - An ask still open from an earlier day, answered today while the agency asks
+#   again today, takes today's answer first when a later answer exists for the
+#   new ask; with no later answer, today's answer is to today's ask.
+# - A fee quote in the same letter as the final response is a bill for what
+#   came with it, unless that day carries more fee answers than an earlier open
+#   quote needs: it sorts after the response and pauses nothing.
 _BILLED_WITH_RESPONSE = 2.5
 _SAME_DAY_ORDER = {
     **{kind: 1 for kind in _PAUSE_OF_END},
@@ -92,14 +96,22 @@ def in_order(events: list[dict]) -> list[dict]:
     by_day: dict[date, list[dict]] = {}
     for e in events:
         by_day.setdefault(e["event_on"], []).append(e)
+    last_answer: dict[str, date] = {}
+    for e in events:
+        pause = _PAUSE_OF_END.get(e["event_type"])
+        if pause:
+            last_answer[pause] = max(last_answer.get(pause, e["event_on"]), e["event_on"])
     ordered: list[dict] = []
     open_pauses: set[str] = set()
     for day in sorted(by_day):
-        kinds = {e["event_type"] for e in by_day[day]}
-        billed = bool(kinds & AGENCY_TERMINAL) and not kinds & {"fee_paid", "fee_disputed"}
+        kinds = [e["event_type"] for e in by_day[day]]
+        fee_answers = sum(_PAUSE_OF_END.get(kind) == "fee_quoted" for kind in kinds)
+        billed = (any(kind in AGENCY_TERMINAL for kind in kinds)
+                  and fee_answers <= (1 if "fee_quoted" in open_pauses else 0))
 
         def rank(e: dict) -> float:
-            if _PAUSE_OF_END.get(e["event_type"]) in open_pauses:
+            pause = _PAUSE_OF_END.get(e["event_type"])
+            if pause in open_pauses and last_answer[pause] > day:
                 return -1
             if billed and e["event_type"] == "fee_quoted":
                 return _BILLED_WITH_RESPONSE

@@ -9,7 +9,7 @@
 -- deployed JSON.
 
 -- public:     counted in agency metrics AND listed with public_subject
--- stats_only: counted in agency metrics (once closed or 90 days old), never listed.
+-- stats_only: counted in agency metrics once 90 days old (closed or not), never listed.
 --             The default — protects requests tied to unpublished stories.
 -- private:    excluded from the export entirely
 create type request_visibility as enum ('public', 'stats_only', 'private');

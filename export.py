@@ -86,11 +86,14 @@ def fetch(conn: psycopg.Connection) -> list[dict]:
     return list(requests.values())
 
 
-def validate_all(requests: list[dict], as_of: date) -> None:
-    """Raise one ExportError naming every request law.validate rejects.
+def validate_all(requests: list[dict], as_of: date, name_requests: bool) -> None:
+    """Raise one ExportError if law.validate rejects any request.
 
-    Actions logs on a public repo are public, so a failure names the request
-    id and the broken rule, never the agency or the subject.
+    Actions logs on a public repo are public, and a failing request may be a
+    fresh, embargoed one: its id (which also counts private requests) or its
+    rule ("denied follows an unanswered fee_quoted") would reveal it. So the
+    error gives only a count, unless name_requests asks for ids and rules,
+    which staff run locally with --name-requests.
     """
     errors = []
     for r in requests:
@@ -98,9 +101,13 @@ def validate_all(requests: list[dict], as_of: date) -> None:
             law.validate(r["filed_on"], r["events"], as_of)
         except law.InvalidRequest as e:
             errors.append(f"request {r['id']}: {e}")
-    if errors:
-        raise ExportError(f"{len(errors)} request(s) failed validation; nothing was exported:\n  "
-                          + "\n  ".join(errors))
+    if not errors:
+        return
+    if not name_requests:
+        raise ExportError(f"{len(errors)} request(s) failed validation; nothing was exported. To see which, "
+                          f"run locally: python export.py --dry-run --name-requests")
+    raise ExportError(f"{len(errors)} request(s) failed validation; nothing was exported:\n  "
+                      + "\n  ".join(errors))
 
 
 def latest_quote_cents(events: list[dict]) -> int | None:
@@ -283,12 +290,12 @@ def holiday_warning(card: list[dict], as_of: date) -> str | None:
     return f"No {year} holiday list for {', '.join(missing)}: set law.HOLIDAYS before Jan. 1 or the export stops"
 
 
-def run(conninfo: str, out: Path, as_of: date, dry_run: bool) -> None:
+def run(conninfo: str, out: Path, as_of: date, dry_run: bool, name_requests: bool = False) -> None:
     with psycopg.connect(conninfo) as conn:
         conn.read_only = True
         conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
         requests = fetch(conn)
-    validate_all(requests, as_of)
+    validate_all(requests, as_of, name_requests)
     derived = [derive(r, as_of) for r in requests]
     card = scorecard(derived)
     listed = public_requests(derived)
@@ -315,8 +322,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--as-of", type=date.fromisoformat, default=datetime.now(NEWSROOM_TZ).date(),
                         help="day to measure open requests to (default: today in Wausau)")
     parser.add_argument("--dry-run", action="store_true", help="read, validate and compute; write nothing")
+    parser.add_argument("--name-requests", action="store_true",
+                        help="on a validation failure, print each request's id and rule (never in Actions)")
     args = parser.parse_args(argv)
-    run(os.environ["SUPABASE_DB_URL"], args.out, args.as_of, args.dry_run)
+    run(os.environ["SUPABASE_DB_URL"], args.out, args.as_of, args.dry_run, args.name_requests)
 
 
 if __name__ == "__main__":

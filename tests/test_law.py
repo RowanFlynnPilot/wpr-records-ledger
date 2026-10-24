@@ -143,6 +143,31 @@ def test_answer_and_new_ask_on_the_same_day():
     assert law.held_working_days(A, filed, asked_twice, LATER) == 2      # 10/1, 10/16
 
 
+def test_new_ask_answered_the_same_day_while_an_old_one_is_open():
+    # Quote $50, then a revised $30 quote paid the same day: the payment answers
+    # the revision, so the pause ends that day.
+    filed = date(2026, 10, 1)
+    revised_and_paid = [ev("fee_quoted", 10, 2), ev("fee_quoted", 10, 6), ev("fee_paid", 10, 6)]
+    law.validate(filed, revised_and_paid, LATER)
+    assert law.held_working_days(A, filed, revised_and_paid, date(2026, 10, 9)) == 4   # 10/1, 10/6-10/8
+    assert [e["event_type"] for e in law.in_order(revised_and_paid)] == ["fee_quoted", "fee_quoted", "fee_paid"]
+    law.validate(filed, revised_and_paid + [ev("fulfilled", 10, 9)], LATER)
+    asked_again = [ev("clarification_requested", 10, 2), ev("clarification_requested", 10, 6),
+                   ev("clarification_sent", 10, 6), ev("fulfilled", 10, 9)]
+    law.validate(filed, asked_again, LATER)
+
+
+def test_bill_with_the_response_after_paying_a_deposit():
+    # Deposit quoted 10/2; on 10/8 WPR pays it and the agency releases with a bill for the balance.
+    filed = date(2026, 10, 1)
+    events = [ev("fee_quoted", 10, 2), ev("fee_paid", 10, 8), ev("fulfilled", 10, 8), ev("fee_quoted", 10, 8)]
+    law.validate(filed, events, LATER)
+    assert law.held_working_days(A, filed, events, LATER) == 1                 # 10/1; paused 10/2-10/7
+    # Paying the balance the same day too: the bill is then answered, not billed with the response.
+    both_paid = events + [ev("fee_paid", 10, 8)]
+    law.validate(filed, both_paid, LATER)
+
+
 def test_same_day_events_sort_in_logical_order():
     # Logged in the wrong order on the same day: the payment still answers the
     # quote before the release, and the appeal follows the denial.

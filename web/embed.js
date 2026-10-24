@@ -14,7 +14,8 @@ async function start() {
   }
   document.getElementById("embed-updated").textContent = `Updated ${fmtDateTime(meta.generated_at)}`;
   warnIfStale(meta, document.querySelector(".embed-head"));
-  postHeight();
+  // Fonts swapping in, or the card wrapping, change the height after the first paint.
+  new ResizeObserver(postHeight).observe(document.documentElement);
 }
 
 // Lets the article page size the iframe; carries nothing but the height.
@@ -22,6 +23,6 @@ function postHeight() {
   if (window.parent === window) return;
   window.parent.postMessage({ source: "wpr-records-ledger", height: document.documentElement.scrollHeight }, "*");
 }
-window.addEventListener("resize", postHeight);
+
 
 start().catch((err) => showError(document.querySelector("main"), err));

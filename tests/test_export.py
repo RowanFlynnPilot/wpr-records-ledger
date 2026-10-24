@@ -108,14 +108,18 @@ def test_invalid_event_log_stops_the_export(events, rule):
     bad = synthetic.req("BAD", synthetic.CITY, date(2026, 10, 1), "email", "stats_only", "simple", events)
     requests = synthetic.as_fetched(synthetic.REQUESTS + [bad])
     with pytest.raises(export.ExportError) as err:
-        export.validate_all(requests, AS_OF)
+        export.validate_all(requests, AS_OF, name_requests=True)
     assert f"request {len(requests)}: " in str(err.value) and rule in str(err.value)
-    assert synthetic.CITY not in str(err.value)   # public logs never name the agency...
-    assert "2026-" not in str(err.value)          # ...or date an embargoed request
+    assert synthetic.CITY not in str(err.value) and "2026-" not in str(err.value)   # never agency or dates
+    # In the public log: a count, not the id or the rule, either of which could reveal a fresh request.
+    with pytest.raises(export.ExportError) as err:
+        export.validate_all(requests, AS_OF, name_requests=False)
+    assert str(err.value).startswith("1 request(s) failed validation")
+    assert f"request {len(requests)}" not in str(err.value) and rule not in str(err.value)
 
 
 def test_valid_synthetic_data_passes_validation():
-    export.validate_all(synthetic.as_fetched(), AS_OF)
+    export.validate_all(synthetic.as_fetched(), AS_OF, name_requests=False)
 
 
 def test_missing_holiday_year_stops_the_export(monkeypatch):
