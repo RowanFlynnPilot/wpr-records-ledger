@@ -111,6 +111,10 @@ create table request_events (
     or
     (event_type not in ('denied', 'partially_denied')
       and denial_reason is null and remedy_notice is null)
+  ),
+  -- No reason stated is null, never a blank string, so it is counted as one.
+  constraint denial_reason_not_blank check (
+    denial_reason is null or length(trim(denial_reason)) > 0
   )
 );
 

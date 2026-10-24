@@ -101,6 +101,9 @@ insert into must_fail values
   ('denial without remedy_notice',
    $s$insert into request_events (request_id, event_type, event_on, denial_reason)
       select id, 'denied', '2026-10-06', 'Ongoing investigation' from requests where records_sought = 'request A'$s$),
+  ('blank denial_reason',
+   $s$insert into request_events (request_id, event_type, event_on, denial_reason, remedy_notice)
+      select id, 'denied', '2026-10-06', '  ', true from requests where records_sought = 'request A'$s$),
   ('denial_reason on fulfilled',
    $s$insert into request_events (request_id, event_type, event_on, denial_reason)
       select id, 'fulfilled', '2026-10-06', 'n/a' from requests where records_sought = 'request A'$s$),
